@@ -89,7 +89,7 @@ is set; with a topic filter alone, every client that connects would come along.
 | Unsubscribed | unsubscribed | topic filter |
 | Sent | client sent a message, the broker accepted it | topic, QoS, retain, size, payload |
 | Sending refused | ACL refused the message | topic, QoS, retain, size |
-| Dropped (rule) | a [message rule](nachrichtenregeln.md) dropped the message | rule, reason, topic, size, payload |
+| Dropped (rule) | a [message rule](message-rules.md) dropped the message | rule, reason, topic, size, payload |
 | Delivered | broker sent the client a message | topic, QoS, retain, size, payload |
 
 The reasons for a disconnect are those of Mosquitto, for example *disconnected* (logged out cleanly), *connection lost* (connection

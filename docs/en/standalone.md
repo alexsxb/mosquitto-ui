@@ -49,7 +49,7 @@ Options: `--port <Port>` (UI, default 8080), `--no-start`, `--skip-packages` (ev
 
 ### First login
 
-First with the [local login](anmeldung.md): user `admin`, password in
+First with the [local login](login.md): user `admin`, password in
 
 ```
 sudo cat /var/lib/mosquitto-ui/state/initial-password

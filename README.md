@@ -419,7 +419,7 @@ table of their own. Whoever may subscribe to that topic sees them, as with the r
 
 ## Sessions and trace
 
-Details: [docs/en/sitzungen-aufzeichnung.md](docs/en/sitzungen-aufzeichnung.md) (German: [docs/sitzungen-aufzeichnung.md](docs/sitzungen-aufzeichnung.md)).
+Details: [docs/en/sessions-and-trace.md](docs/en/sessions-and-trace.md) (German: [docs/sitzungen-aufzeichnung.md](docs/sitzungen-aufzeichnung.md)).
 
 The plugin `docker/mosquitto/inspect`, built into the broker image from 0.21.0 on, follows the events of the broker and answers
 on `$CONTROL/inspect/v1`, as dynamic security does on its own topic. The broker user of the UI needs `$CONTROL/inspect/#` to send
@@ -443,7 +443,7 @@ message and client.
 
 ## Message rules
 
-Details: [docs/en/nachrichtenregeln.md](docs/en/nachrichtenregeln.md) (German: [docs/nachrichtenregeln.md](docs/nachrichtenregeln.md)).
+Details: [docs/en/message-rules.md](docs/en/message-rules.md) (German: [docs/nachrichtenregeln.md](docs/nachrichtenregeln.md)).
 
 The page Message rules sets what messages on a topic must look like (valid JSON, a size limit, required fields with their
 type, by a dotted path) and how many messages a client may send (a bucket of *burst* messages that fills up with *per
@@ -512,7 +512,7 @@ Debian, Ubuntu, Fedora and RHEL/Rocky/Alma (apt or dnf).
 
 ## Login
 
-Details: [docs/en/anmeldung.md](docs/en/anmeldung.md) (German: [docs/anmeldung.md](docs/anmeldung.md)).
+Details: [docs/en/login.md](docs/en/login.md) (German: [docs/anmeldung.md](docs/anmeldung.md)).
 
 People log in with **UI users** (user name and password, kept by the UI) and with one or more **identity providers**, both set
 up on the page *Login*. There are templates for Keycloak, authentik, Authelia, ZITADEL, Pocket ID, Kanidm, Google, Microsoft

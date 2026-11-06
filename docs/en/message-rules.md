@@ -3,7 +3,7 @@
 On the page **Message rules** (under **Broker**) you set what messages must look like and how many a client
 may send. The broker checks every message a client sends, before anyone gets it, and drops what does not
 fit. This is done by the plugin `docker/mosquitto/inspect` (file `rules.c`), the same one as for
-[Sessions and trace](sitzungen-aufzeichnung.md). Applies from mosquitto-ui 0.22.0 on.
+[Sessions and trace](sessions-and-trace.md). Applies from mosquitto-ui 0.22.0 on.
 
 ## What for
 
