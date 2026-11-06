@@ -123,7 +123,7 @@ if [ "$installed" != "$MOSQUITTO_VERSION" ] || [ ! -d "$SRC/include" ]; then
     say "Mosquitto $MOSQUITTO_VERSION from source (a few minutes)"
     work=$(mktemp -d)
     trap 'rm -rf "$work"' EXIT
-    curl -fsSL -o "$work/mosquitto.tar.gz" "https://mosquitto.org/files/source/mosquitto-$MOSQUITTO_VERSION.tar.gz"
+    curl -fsSL --retry 5 --retry-all-errors --retry-delay 5 -o "$work/mosquitto.tar.gz" "https://mosquitto.org/files/source/mosquitto-$MOSQUITTO_VERSION.tar.gz"
     echo "$MOSQUITTO_SHA256  $work/mosquitto.tar.gz" | sha256sum -c --quiet - || fail "checksum of the Mosquitto source does not match"
     rm -rf "$SRC"
     mkdir -p "$SRC"

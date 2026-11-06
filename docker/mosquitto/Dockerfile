@@ -8,7 +8,7 @@ FROM alpine:3.23.7 AS token-auth
 ARG MOSQUITTO_VERSION=2.1.2
 ARG MOSQUITTO_SHA256=fd905380691ac65ea5a93779e8214941829e3d6e038d5edff9eac5fd74cbed02
 RUN apk add --no-cache build-base openssl-dev cjson-dev curl
-RUN curl -fsSL -o /tmp/mosquitto.tar.gz https://mosquitto.org/files/source/mosquitto-${MOSQUITTO_VERSION}.tar.gz \
+RUN curl -fsSL --retry 5 --retry-all-errors --retry-delay 5 -o /tmp/mosquitto.tar.gz https://mosquitto.org/files/source/mosquitto-${MOSQUITTO_VERSION}.tar.gz \
     && echo "${MOSQUITTO_SHA256}  /tmp/mosquitto.tar.gz" | sha256sum -c - \
     && mkdir -p /usr/local/include/mosquitto-src \
     && tar xzf /tmp/mosquitto.tar.gz -C /usr/local/include/mosquitto-src --strip-components=2 mosquitto-${MOSQUITTO_VERSION}/include
