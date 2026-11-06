@@ -1,0 +1,266 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@import "@fontsource-variable/geist";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+    --font-heading: var(--font-sans);
+    --font-sans: 'Geist Variable', sans-serif;
+    --color-sidebar-ring: var(--sidebar-ring);
+    --color-sidebar-border: var(--sidebar-border);
+    --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+    --color-sidebar-accent: var(--sidebar-accent);
+    --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+    --color-sidebar-primary: var(--sidebar-primary);
+    --color-sidebar-foreground: var(--sidebar-foreground);
+    --color-sidebar: var(--sidebar);
+    --color-chart-5: var(--chart-5);
+    --color-chart-4: var(--chart-4);
+    --color-chart-3: var(--chart-3);
+    --color-chart-2: var(--chart-2);
+    --color-chart-1: var(--chart-1);
+    --color-ring: var(--ring);
+    --color-input: var(--input);
+    --color-border: var(--border);
+    --color-destructive: var(--destructive);
+    --color-accent-foreground: var(--accent-foreground);
+    --color-accent: var(--accent);
+    --color-muted-foreground: var(--muted-foreground);
+    --color-muted: var(--muted);
+    --color-secondary-foreground: var(--secondary-foreground);
+    --color-secondary: var(--secondary);
+    --color-primary-foreground: var(--primary-foreground);
+    --color-primary: var(--primary);
+    --color-popover-foreground: var(--popover-foreground);
+    --color-popover: var(--popover);
+    --color-card-foreground: var(--card-foreground);
+    --color-card: var(--card);
+    --color-foreground: var(--foreground);
+    --color-background: var(--background);
+    --radius-sm: calc(var(--radius) * 0.6);
+    --radius-md: calc(var(--radius) * 0.8);
+    --radius-lg: var(--radius);
+    --radius-xl: calc(var(--radius) * 1.4);
+    --radius-2xl: calc(var(--radius) * 1.8);
+    --radius-3xl: calc(var(--radius) * 2.2);
+    --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+:root {
+    --background: oklch(1 0 0);
+    --foreground: oklch(0.145 0 0);
+    --card: oklch(1 0 0);
+    --card-foreground: oklch(0.145 0 0);
+    --popover: oklch(1 0 0);
+    --popover-foreground: oklch(0.145 0 0);
+    --primary: oklch(0.205 0 0);
+    --primary-foreground: oklch(0.985 0 0);
+    --secondary: oklch(0.97 0 0);
+    --secondary-foreground: oklch(0.205 0 0);
+    --muted: oklch(0.97 0 0);
+    --muted-foreground: oklch(0.556 0 0);
+    --accent: oklch(0.97 0 0);
+    --accent-foreground: oklch(0.205 0 0);
+    --destructive: oklch(0.577 0.245 27.325);
+    --border: oklch(0.922 0 0);
+    --input: oklch(0.922 0 0);
+    --ring: oklch(0.708 0 0);
+    --chart-1: oklch(0.87 0 0);
+    --chart-2: oklch(0.556 0 0);
+    --chart-3: oklch(0.439 0 0);
+    --chart-4: oklch(0.371 0 0);
+    --chart-5: oklch(0.269 0 0);
+    --radius: 0.625rem;
+    --sidebar: oklch(0.985 0 0);
+    --sidebar-foreground: oklch(0.145 0 0);
+    --sidebar-primary: oklch(0.205 0 0);
+    --sidebar-primary-foreground: oklch(0.985 0 0);
+    --sidebar-accent: oklch(0.97 0 0);
+    --sidebar-accent-foreground: oklch(0.205 0 0);
+    --sidebar-border: oklch(0.922 0 0);
+    --sidebar-ring: oklch(0.708 0 0);
+}
+
+.dark {
+    /* Slightly blue instead of plain grey, and with visible steps between page, card and border. Colour means something: teal is what is active
+       or can be clicked, red what failed */
+    --background: oklch(0.17 0.018 255);
+    --foreground: oklch(0.97 0.005 255);
+    --card: oklch(0.245 0.022 255);
+    --card-foreground: oklch(0.97 0.005 255);
+    --popover: oklch(0.27 0.024 255);
+    --popover-foreground: oklch(0.97 0.005 255);
+    --primary: oklch(0.8 0.13 195);
+    --primary-foreground: oklch(0.21 0.03 230);
+    --secondary: oklch(0.32 0.026 255);
+    --secondary-foreground: oklch(0.97 0.005 255);
+    --muted: oklch(0.32 0.026 255);
+    --muted-foreground: oklch(0.8 0.02 255);
+    --accent: oklch(0.34 0.03 245);
+    --accent-foreground: oklch(0.97 0.005 255);
+    --destructive: oklch(0.78 0.14 22);
+    --border: oklch(0.4 0.03 255);
+    --input: oklch(0.45 0.03 255);
+    --ring: oklch(0.8 0.13 195);
+    --chart-1: oklch(0.87 0 0);
+    --chart-2: oklch(0.556 0 0);
+    --chart-3: oklch(0.439 0 0);
+    --chart-4: oklch(0.371 0 0);
+    --chart-5: oklch(0.269 0 0);
+    --sidebar: oklch(0.205 0.02 255);
+    --sidebar-foreground: oklch(0.97 0.005 255);
+    --sidebar-primary: oklch(0.8 0.13 195);
+    --sidebar-primary-foreground: oklch(0.21 0.03 230);
+    --sidebar-accent: oklch(0.32 0.04 225);
+    --sidebar-accent-foreground: oklch(0.97 0.005 255);
+    --sidebar-border: oklch(0.34 0.026 255);
+    --sidebar-ring: oklch(0.8 0.13 195);
+}
+
+/* A chosen value in a field: stands out from the field in both themes */
+@utility chip {
+    background-color: color-mix(in oklch, var(--primary) 16%, transparent);
+    border-color: color-mix(in oklch, var(--primary) 45%, transparent);
+    box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--primary) 45%, transparent);
+    color: var(--foreground);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+    }
+  body {
+    @apply bg-background text-foreground;
+    }
+  html {
+    @apply font-sans;
+    }
+}
+
+/* Landing page: the accent stays teal in both themes, unlike --primary */
+.landing {
+    --landing-accent: oklch(0.5 0.1 205);
+    --landing-accent-foreground: oklch(0.99 0 0);
+    --landing-glow: oklch(0.72 0.13 195 / 0.3);
+    background:
+        radial-gradient(60rem 40rem at 80% 35%, var(--landing-glow), transparent 70%),
+        radial-gradient(oklch(from var(--foreground) l c h / 0.09) 1px, transparent 1px) 0 0 / 26px 26px,
+        var(--background);
+}
+
+.dark .landing {
+    --landing-accent: oklch(0.8 0.13 195);
+    --landing-accent-foreground: oklch(0.21 0.03 230);
+    --landing-glow: oklch(0.6 0.13 200 / 0.28);
+}
+
+.landing-accent-text {
+    color: var(--landing-accent);
+}
+
+.landing-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.625rem;
+    padding: 0.875rem 1.5rem;
+    border-radius: var(--radius-xl);
+    font-weight: 500;
+    background: var(--landing-accent);
+    color: var(--landing-accent-foreground);
+    box-shadow: 0 0.5rem 2rem var(--landing-glow);
+    transition: transform 150ms, box-shadow 150ms;
+}
+
+.landing-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 0.75rem 2.5rem var(--landing-glow);
+}
+
+.landing-button:focus-visible {
+    outline: 3px solid var(--landing-accent);
+    outline-offset: 3px;
+}
+
+.landing-wire {
+    fill: none;
+    stroke: var(--muted-foreground);
+    stroke-opacity: 0.45;
+    stroke-width: 1.5;
+}
+
+.landing-signal {
+    fill: none;
+    stroke: var(--landing-accent);
+    stroke-width: 3;
+    stroke-linecap: round;
+    stroke-dasharray: 7 93;
+    stroke-dashoffset: 100;
+    animation: landing-signal 3.8s linear infinite;
+}
+
+.landing-signal-back {
+    animation-direction: reverse;
+}
+
+.landing-node {
+    fill: var(--background);
+    stroke: var(--landing-accent);
+    stroke-width: 2.5;
+}
+
+.landing-hub {
+    fill: var(--card);
+    stroke: var(--landing-accent);
+    stroke-width: 2;
+}
+
+.landing-pulse {
+    fill: none;
+    stroke: var(--landing-accent);
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: landing-pulse 3s ease-out infinite;
+}
+
+.landing-topic {
+    fill: var(--muted-foreground);
+    font-family: ui-monospace, monospace;
+    font-size: 13px;
+}
+
+@keyframes landing-signal {
+    to {
+        stroke-dashoffset: 0;
+    }
+}
+
+@keyframes landing-pulse {
+    from {
+        opacity: 0.5;
+        transform: scale(0.75);
+    }
+    to {
+        opacity: 0;
+        transform: scale(1.15);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .landing-signal {
+        display: none;
+    }
+
+    .landing-pulse {
+        animation: none;
+        opacity: 0.25;
+    }
+}
+
+
+/* A listener with TLS on the dashboard, in the colour of what is active */
+.listener-tls {
+    border-color: color-mix(in oklch, var(--primary) 45%, var(--border));
+    background-image: radial-gradient(24rem 12rem at 100% 0%, color-mix(in oklch, var(--primary) 12%, transparent), transparent 70%);
+}

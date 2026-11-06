@@ -1,0 +1,11 @@
+.git
+.idea
+.vscode
+target
+**/node_modules
+src/main/webui/dist
+.quinoa
+docker/mosquitto/ui
+docker/state
+deploy/.env
+*.iml

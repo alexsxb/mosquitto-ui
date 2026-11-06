@@ -1,0 +1,72 @@
+{
+  "realm": "mosquitto-ui",
+  "enabled": true,
+  "displayName": "mosquitto-ui",
+  "roles": {
+    "realm": [
+      { "name": "mosquitto-admin" },
+      {
+        "name": "mqtt-admin",
+        "composite": true,
+        "composites": { "realm": ["mosquitto-admin"] }
+      },
+      { "name": "mqtt-user" }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "mosquitto-ui",
+      "secret": "dev-client-secret",
+      "publicClient": false,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "redirectUris": ["http://localhost:8090/*"],
+      "webOrigins": ["+"],
+      "attributes": {
+        "post.logout.redirect.uris": "http://localhost:8090/*",
+        "login_theme": "mosquitto-ui"
+      }
+    }
+  ],
+  "users": [
+    {
+      "username": "kcadmin",
+      "enabled": true,
+      "email": "kcadmin@example.test",
+      "emailVerified": true,
+      "firstName": "Admin",
+      "lastName": "Keycloak",
+      "realmRoles": ["mosquitto-admin"],
+      "credentials": [{ "type": "password", "value": "kcadmin-pass", "temporary": false }]
+    },
+    {
+      "username": "kcuser",
+      "enabled": true,
+      "email": "kcuser@example.test",
+      "emailVerified": true,
+      "firstName": "User",
+      "lastName": "Keycloak",
+      "credentials": [{ "type": "password", "value": "kcuser-pass", "temporary": false }]
+    },
+    {
+      "username": "admin",
+      "enabled": true,
+      "email": "admin@example.test",
+      "emailVerified": true,
+      "firstName": "Admin",
+      "lastName": "Mqtt",
+      "realmRoles": ["mqtt-admin"],
+      "credentials": [{ "type": "password", "value": "admin", "temporary": false }]
+    },
+    {
+      "username": "user",
+      "enabled": true,
+      "email": "user@example.test",
+      "emailVerified": true,
+      "firstName": "User",
+      "lastName": "Mqtt",
+      "realmRoles": ["mqtt-user"],
+      "credentials": [{ "type": "password", "value": "user", "temporary": false }]
+    }
+  ]
+}

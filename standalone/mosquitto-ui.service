@@ -1,0 +1,34 @@
+# The web UI of mosquitto-ui (Quarkus, Java 21). Installed by standalone/install.sh; settings in /etc/mosquitto-ui/mosquitto-ui.env.
+[Unit]
+Description=mosquitto-ui
+Documentation=https://github.com/alexsxb/mosquitto-ui
+Wants=mosquitto-ui-broker.service
+After=network-online.target mosquitto-ui-broker.service
+
+[Service]
+Type=simple
+User=mosquitto-ui
+Group=mosquitto-ui
+EnvironmentFile=/etc/mosquitto-ui/mosquitto-ui.env
+WorkingDirectory=/opt/mosquitto-ui/current/app
+ExecStart=/usr/bin/java $JAVA_OPTS -jar /opt/mosquitto-ui/current/app/quarkus-run.jar
+# Exit code of the JVM after SIGTERM
+SuccessExitStatus=143
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ReadWritePaths=/var/lib/mosquitto-ui/state /var/lib/mosquitto-ui/shared /var/lib/mosquitto-ui/backups
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+
+[Install]
+WantedBy=multi-user.target

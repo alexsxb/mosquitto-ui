@@ -1,0 +1,12 @@
+# For images built from this repository instead of the released ones:
+#   docker compose -f compose.yaml -f compose.build.yaml up -d --build
+services:
+  mosquitto:
+    build:
+      context: ../docker/mosquitto
+    image: mosquitto-ui-broker:local
+
+  mosquitto-ui:
+    build:
+      context: ..
+    image: mosquitto-ui:local

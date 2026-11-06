@@ -1,0 +1,41 @@
+# Development environment: Mosquitto with the dynamic security and token login plugins, and Keycloak.
+#   Started by "./mvnw quarkus:dev" (Compose Dev Services), or by hand: docker compose -f docker/compose.yaml up -d
+# Mosquitto: localhost:11883, user admin / dev-dynsec-password (the plugin needs at least 12 characters and otherwise
+#   starts without any user, rejecting every client)
+# Keycloak: http://localhost:18181 (admin/admin), realm "mosquitto-ui", client "mosquitto-ui" / "dev-client-secret",
+#   users kcadmin/kcadmin-pass (role mosquitto-admin), kcuser/kcuser-pass (no access),
+#   admin/admin (role mqtt-admin, which includes mosquitto-admin) and user/user (role mqtt-user, no access yet)
+name: mosquitto-ui-dev
+
+services:
+  mosquitto:
+    # the broker image of this repository, with the token login plugin; rebuilt with "docker compose build" after a change
+    build: ./mosquitto
+    image: mosquitto-ui-broker:dev
+    command: ["sh", "/mosquitto/agent.sh"]
+    environment:
+      MOSQUITTO_DYNSEC_PASSWORD: dev-dynsec-password
+      # The UI runs on the host in dev mode, as you: the agent gives it the shared directory
+      UI_UID: ${UI_UID:-1000}
+    ports:
+      - "11883:1883"
+    volumes:
+      - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - ./mosquitto/agent.sh:/mosquitto/agent.sh:ro
+      - ./mosquitto/ui:/mosquitto/ui
+      - mosquitto-data:/mosquitto/data
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.8.1
+    command: start-dev --import-realm
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+    ports:
+      - "18181:8080"
+    volumes:
+      - ./keycloak:/opt/keycloak/data/import:ro
+      - ./keycloak-theme/mosquitto-ui:/opt/keycloak/themes/mosquitto-ui:ro
+
+volumes:
+  mosquitto-data:

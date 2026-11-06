@@ -1,0 +1,91 @@
+# mosquitto-ui with its broker in production.
+#
+# This file and a .env are all a host needs:
+#   cp env.example .env && edit .env
+#   docker compose up -d
+# An update: set MOSQUITTO_UI_VERSION, then docker compose pull && docker compose up -d; see the releases on
+# https://github.com/alexsxb/mosquitto-ui/releases. To build from this repository, see compose.build.yaml.
+#
+# The UI listens on ${MOSQUITTO_UI_PORT} on all addresses; put a reverse proxy with TLS in front of it. The broker publishes
+# its ports directly; 8883 answers once the UI has a certificate and set up its TLS listener.
+name: mosquitto-ui
+
+services:
+  mosquitto:
+    # Mosquitto with mosquitto.conf and the agent that carries out what the UI asks for, see docker/mosquitto
+    image: ${MOSQUITTO_UI_REGISTRY:-ghcr.io/alexsxb}/mosquitto-ui-broker:${MOSQUITTO_UI_VERSION:-latest}
+    restart: unless-stopped
+    environment:
+      # Only read on the first start. At least 12 characters: with a shorter one the broker starts without any user
+      MOSQUITTO_DYNSEC_PASSWORD: ${MOSQUITTO_PASSWORD:?MOSQUITTO_PASSWORD must be set in .env}
+      # The user of the UI image: the agent gives it the shared directory, the broker only reads there
+      UI_UID: "1001"
+    ports:
+      - "${MQTT_PORT:-1883}:1883"
+      - "${MQTTS_PORT:-8883}:8883"
+    volumes:
+      # Only for a configuration of your own instead of the one in the image, see docker/mosquitto/mosquitto.conf; keep its
+      # token login plugin before dynamic security:
+      #- ./mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - shared:/mosquitto/ui
+      - data:/mosquitto/data
+    healthcheck:
+      test: ["CMD", "nc", "-z", "127.0.0.1", "1883"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "5" }
+
+  mosquitto-ui:
+    image: ${MOSQUITTO_UI_REGISTRY:-ghcr.io/alexsxb}/mosquitto-ui:${MOSQUITTO_UI_VERSION:-latest}
+    restart: unless-stopped
+    environment:
+      MOSQUITTO_HOST: mosquitto
+      MOSQUITTO_USERNAME: ${MOSQUITTO_USERNAME:-admin}
+      MOSQUITTO_PASSWORD: ${MOSQUITTO_PASSWORD:?MOSQUITTO_PASSWORD must be set in .env}
+      # Login: UI users and identity providers are set up on the page Login. local keeps the local login on whatever that
+      # page says (the way back in); the first UI user gets the password below or a generated one in the state volume
+      MOSQUITTO_UI_AUTH: ${MOSQUITTO_UI_AUTH:-oidc}
+      MOSQUITTO_UI_LOCAL_AUTH_INITIAL_PASSWORD: ${MOSQUITTO_UI_LOCAL_AUTH_INITIAL_PASSWORD:-}
+      # Of versions before 0.26: become a provider at the first start (letting in MOSQUITTO_UI_ADMIN_ROLE), not read afterwards
+      QUARKUS_OIDC_AUTH_SERVER_URL: ${OIDC_ISSUER:-}
+      QUARKUS_OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-}
+      QUARKUS_OIDC_CREDENTIALS_SECRET: ${OIDC_CLIENT_SECRET:-}
+      MOSQUITTO_UI_ADMIN_ROLE: ${MOSQUITTO_UI_ADMIN_ROLE:-mosquitto-admin}
+      # Encrypts secrets in the state volume; empty: a key is generated in that volume
+      MOSQUITTO_UI_SECRET_KEY: ${MOSQUITTO_UI_SECRET_KEY:-}
+      # Redirects of the login from the reverse proxy
+      QUARKUS_HTTP_PROXY_PROXY_ADDRESS_FORWARDING: "true"
+      QUARKUS_HTTP_PROXY_ALLOW_X_FORWARDED: "true"
+      QUARKUS_HTTP_PROXY_TRUSTED_PROXIES: ${TRUSTED_PROXIES:-127.0.0.1,172.16.0.0/12}
+    ports:
+      - "${MOSQUITTO_UI_PORT:-8080}:8080"
+    volumes:
+      - shared:/mosquitto/ui
+      - state:/var/lib/mosquitto-ui
+      - backups:/backups
+    # Only /tmp is writable, besides the volumes (JVM and Vert.x temporary files)
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: ${MOSQUITTO_UI_MEMORY:-512m}
+    depends_on:
+      mosquitto:
+        condition: service_healthy
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "5" }
+
+networks:
+  default:
+    enable_ipv6: true
+
+volumes:
+  shared:
+  data:
+  state:
+  backups:

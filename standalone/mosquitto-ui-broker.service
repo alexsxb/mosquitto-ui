@@ -1,0 +1,34 @@
+# Mosquitto of mosquitto-ui with the agent that carries out what the UI asks for (docker/mosquitto/agent.sh): it starts the
+# broker, checks and takes over configurations, installs certificates. As root, as it hands the directories to the UI and the
+# broker; Mosquitto itself drops to the user mosquitto. Installed by standalone/install.sh.
+[Unit]
+Description=Mosquitto broker of mosquitto-ui
+Documentation=https://github.com/alexsxb/mosquitto-ui
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+# MOSQUITTO_DYNSEC_PASSWORD (only read on the first start) and UI_UID
+EnvironmentFile=/etc/mosquitto-ui/broker.env
+Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+Environment=MOSQUITTO_CONF=/etc/mosquitto-ui/mosquitto.conf
+Environment=DYNSEC_FILE=/var/lib/mosquitto/dynamic-security.json
+Environment=CERTS_DIR=/var/lib/mosquitto/certs
+Environment=UI_DIR=/var/lib/mosquitto-ui/shared
+ExecStart=/bin/sh /opt/mosquitto-ui/current/broker/agent.sh
+# The agent ends when the broker does, as in the container
+Restart=always
+RestartSec=5
+TimeoutStopSec=30
+LimitNOFILE=65536
+NoNewPrivileges=true
+ProtectSystem=full
+ProtectHome=true
+PrivateTmp=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+
+[Install]
+WantedBy=multi-user.target

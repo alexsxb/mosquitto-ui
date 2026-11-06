@@ -1,0 +1,116 @@
+name: Release
+
+# Only for version tags: "git tag v1.2.3 && git push origin v1.2.3" on a commit of main runs the tests, builds the image with
+# the Dockerfile and pushes it as ghcr.io/<owner>/mosquitto-ui:1.2.3 and :latest, and with it the broker image from
+# docker/mosquitto as mosquitto-ui-broker with the same tags, as the agent and the UI have to fit each other. Both for
+# linux/amd64 and linux/arm64 (arm64 through QEMU). Then it attaches the tarball for hosts without Docker to a GitHub
+# release of the tag. No deployment.
+#
+# No secrets needed: GITHUB_TOKEN pushes to ghcr.io and writes the release. A new package on ghcr.io starts private; make it
+# public once under Package settings → Change visibility.
+on:
+  push:
+    tags: ['v*']
+
+# Never two releases at once, an older one could overwrite :latest
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  packages: write
+
+env:
+  CONTENT_LABEL: fr.lezoom.mosquitto-ui.broker-content
+  PLATFORMS: linux/amd64,linux/arm64
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # full history: the tag must be on main
+          fetch-depth: 0
+
+      - name: Version from the tag
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          if ! printf '%s' "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "Tag $GITHUB_REF_NAME is not a version of the form v1.2.3" >&2; exit 1
+          fi
+          git fetch --quiet origin main
+          if ! git merge-base --is-ancestor HEAD origin/main; then
+            echo "Tag $GITHUB_REF_NAME is not on main, only merged commits are released" >&2; exit 1
+          fi
+          # image names on ghcr.io must be lower case
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
+
+      - name: JDK
+        uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
+        with:
+          distribution: zulu
+          java-version: '21'
+          cache: maven
+
+      # The tests start Mosquitto and Pebble with Testcontainers; the application in target/quarkus-app goes into the image
+      - name: Build and test
+        run: ./mvnw -B -ntp verify -Dquarkus.application.version="$VERSION"
+
+      - name: QEMU
+        uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
+
+      - name: Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - name: Log in to ghcr.io
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # The label tells a deployment whether the broker has to restart, which disconnects every client: what the image is
+      # made of, and the digests of its base images, so that a new build of Mosquitto still arrives. Every FROM of the
+      # Dockerfile counts, also the stage that builds the plugins; "AS <stage>" is not part of the image name.
+      # The build stage of the Dockerfile is skipped through --build-context.
+      - name: Build and push the images
+        run: |
+          digests=""
+          for base in $(sed -n 's/^FROM \([^ ]*\).*/\1/p' docker/mosquitto/Dockerfile); do
+            digests="$digests $(docker buildx imagetools inspect "$base" | sed -n 's/^Digest: *//p' | head -1)"
+          done
+          content=$(printf '%s%s' "$(git rev-parse HEAD:docker/mosquitto)" "$digests" | sha256sum | cut -d' ' -f1)
+          echo "Content of the broker: $content"
+          source="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY"
+          common=(--platform "$PLATFORMS" --pull --push
+            --label org.opencontainers.image.version="$VERSION"
+            --label org.opencontainers.image.revision="$GITHUB_SHA"
+            --label org.opencontainers.image.source="$source"
+            --label org.opencontainers.image.licenses=AGPL-3.0-only
+            --annotation "index:org.opencontainers.image.source=$source"
+            --annotation "index:org.opencontainers.image.licenses=AGPL-3.0-only")
+          docker buildx build "${common[@]}" \
+            --annotation "index:org.opencontainers.image.description=Web UI for an Eclipse Mosquitto broker" \
+            --build-context quarkus-app=target/quarkus-app \
+            -t "$IMAGE:$VERSION" -t "$IMAGE:latest" .
+          docker buildx build "${common[@]}" \
+            --annotation "index:org.opencontainers.image.description=Eclipse Mosquitto with the plugins of mosquitto-ui" \
+            --label "$CONTENT_LABEL=$content" \
+            -t "$IMAGE-broker:$VERSION" -t "$IMAGE-broker:latest" docker/mosquitto
+
+      # For hosts without Docker (standalone/install.sh): the UI, the agent and the sources of the plugins as a tarball,
+      # attached to a release of the tag. A run again for the same tag replaces the files.
+      - name: Release with the tarball
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          tarball=$(standalone/package.sh "$VERSION")
+          if ! gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release create "$GITHUB_REF_NAME" --verify-tag --title "mosquitto-ui $VERSION" \
+              --notes "Docker: MOSQUITTO_UI_VERSION=$VERSION, see deploy/compose.yaml. Without Docker: tar xzf mosquitto-ui-$VERSION.tar.gz && cd mosquitto-ui-$VERSION && sudo ./install.sh"
+          fi
+          gh release upload "$GITHUB_REF_NAME" "$tarball" "$tarball.sha256" --clobber

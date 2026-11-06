@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#ffffff" />
+    <title>Keine Verbindung · mosquitto-ui</title>
+    <style>
+      :root { color-scheme: light dark; --fg: #0a0a0a; --muted: #737373; --bg: #ffffff; }
+      @media (prefers-color-scheme: dark) { :root { --fg: #fafafa; --muted: #a3a3a3; --bg: #12161c; } }
+      body { margin: 0; min-height: 100dvh; display: flex; align-items: center; justify-content: center; padding: 16px; box-sizing: border-box; background: var(--bg); color: var(--fg); font-family: system-ui, sans-serif; text-align: center; }
+      main { max-width: 22rem; }
+      img { width: 64px; height: 64px; }
+      h1 { font-size: 1.125rem; margin: 1rem 0 0.5rem; }
+      p { color: var(--muted); font-size: 0.875rem; line-height: 1.5; margin: 0.25rem 0; }
+      a { display: inline-block; margin-top: 1.25rem; padding: 0.5rem 1rem; border: 1px solid var(--muted); border-radius: 0.5rem; color: var(--fg); text-decoration: none; font-size: 0.875rem; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <img src="/icons/icon-192.png" alt="" />
+      <h1>Keine Verbindung</h1>
+      <p>mosquitto-ui ist gerade nicht erreichbar. Sobald das Netz wieder da ist, einfach neu laden.</p>
+      <p lang="en">No connection. Reload once the network is back.</p>
+      <p lang="fr">Pas de connexion. Rechargez dès que le réseau est revenu.</p>
+      <a href="/">Neu laden · Reload · Recharger</a>
+    </main>
+  </body>
+</html>

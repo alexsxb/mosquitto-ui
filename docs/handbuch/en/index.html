@@ -1,0 +1,655 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>mosquitto-ui Handbook</title>
+<meta name="description" content="Setup, operation and every page of mosquitto-ui, the management UI for Mosquitto 2.1">
+<style>
+:root {
+  --bg: #fbfbfa; --surface: #ffffff; --text: #1d1f21; --muted: #5d6470; --line: #e3e5e8; --accent: #0e8f86;
+  --accent-soft: #e3f4f2; --code-bg: #f3f4f6; --warn: #9a5b00; --warn-soft: #fff4e0; --danger: #b3261e; --danger-soft: #fdecea;
+  --shadow: 0 1px 2px rgb(0 0 0 / 6%), 0 4px 16px rgb(0 0 0 / 6%);
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0d1113; --surface: #151a1d; --text: #e6e8ea; --muted: #9aa3ad; --line: #283036; --accent: #3fd0c4;
+    --accent-soft: #10302d; --code-bg: #1c2327; --warn: #f0b45a; --warn-soft: #2c2210; --danger: #ff8a80; --danger-soft: #2f1614;
+    --shadow: 0 1px 2px rgb(0 0 0 / 40%), 0 4px 16px rgb(0 0 0 / 30%);
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; scroll-padding-top: 16px; }
+body {
+  margin: 0; background: var(--bg); color: var(--text);
+  font: 16px/1.65 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  -webkit-text-size-adjust: 100%;
+}
+a { color: var(--accent); text-underline-offset: 3px; }
+code, pre, kbd { font-family: ui-monospace, "SFMono-Regular", "JetBrains Mono", Menlo, Consolas, monospace; font-size: 0.88em; }
+code { background: var(--code-bg); padding: 0.1em 0.35em; border-radius: 5px; overflow-wrap: anywhere; }
+pre { background: var(--code-bg); padding: 14px 16px; border-radius: 10px; overflow-x: auto; line-height: 1.5; border: 1px solid var(--line); }
+pre code { background: none; padding: 0; overflow-wrap: normal; }
+kbd { border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 5px; padding: 0 0.35em; background: var(--surface); }
+h1, h2, h3, h4 { line-height: 1.25; letter-spacing: -0.01em; }
+h1 { font-size: 2.4rem; margin: 0 0 0.4em; }
+h2 { font-size: 1.65rem; margin: 2.6em 0 0.6em; padding-top: 0.6em; border-top: 1px solid var(--line); }
+h3 { font-size: 1.2rem; margin: 2em 0 0.5em; }
+h4 { font-size: 1rem; margin: 1.5em 0 0.4em; }
+table { width: 100%; border-collapse: collapse; margin: 1em 0; font-size: 0.93rem; display: block; overflow-x: auto; }
+th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-weight: 600; white-space: nowrap; }
+td code { white-space: nowrap; }
+figure { margin: 1.4em 0 1.8em; }
+figure img { width: 100%; height: auto; display: block; border-radius: 10px; border: 1px solid var(--line); box-shadow: var(--shadow); background: #fff; }
+figure.phone img { max-width: 320px; }
+figcaption { color: var(--muted); font-size: 0.88rem; margin-top: 8px; }
+.layout { display: grid; grid-template-columns: 270px minmax(0, 1fr); max-width: 1240px; margin: 0 auto; }
+nav.toc {
+  position: sticky; top: 0; align-self: start; height: 100vh; overflow-y: auto; padding: 28px 18px 40px 24px;
+  border-right: 1px solid var(--line); font-size: 0.9rem;
+}
+nav.toc .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 1.05rem; margin-bottom: 18px; color: var(--text); text-decoration: none; }
+nav.toc .brand svg { width: 30px; height: 30px; flex: none; }
+nav.toc ol { list-style: none; padding: 0; margin: 0; }
+nav.toc li { margin: 2px 0; }
+nav.toc ol ol { padding-left: 12px; margin: 2px 0 8px; border-left: 1px solid var(--line); }
+nav.toc a { color: var(--muted); text-decoration: none; display: block; padding: 2px 6px; border-radius: 6px; }
+nav.toc a:hover { color: var(--text); background: var(--accent-soft); }
+nav.toc > ol > li > a { color: var(--text); font-weight: 600; margin-top: 8px; }
+main { padding: 40px 48px 120px; min-width: 0; max-width: 900px; }
+.lead { font-size: 1.15rem; color: var(--muted); max-width: 46em; }
+.meta { color: var(--muted); font-size: 0.9rem; }
+.note, .warn, .danger { border-radius: 10px; padding: 12px 16px; margin: 1.2em 0; border: 1px solid var(--line); }
+.note { background: var(--accent-soft); border-color: transparent; }
+.warn { background: var(--warn-soft); border-color: transparent; }
+.danger { background: var(--danger-soft); border-color: transparent; }
+.note > :first-child, .warn > :first-child, .danger > :first-child { margin-top: 0; }
+.note > :last-child, .warn > :last-child, .danger > :last-child { margin-bottom: 0; }
+.note strong:first-child { color: var(--accent); }
+.warn strong:first-child { color: var(--warn); }
+.danger strong:first-child { color: var(--danger); }
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; margin: 1.2em 0; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; }
+.card h4 { margin: 0 0 4px; }
+.card p { margin: 0; color: var(--muted); font-size: 0.92rem; }
+.steps { counter-reset: step; list-style: none; padding: 0; }
+.steps > li { counter-increment: step; position: relative; padding-left: 42px; margin: 0 0 1.1em; }
+.steps > li::before {
+  content: counter(step); position: absolute; left: 0; top: 0; width: 28px; height: 28px; border-radius: 50%;
+  background: var(--accent); color: var(--bg); font-weight: 700; display: grid; place-items: center; font-size: 0.9rem;
+}
+.diagram { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px; margin: 1.4em 0; }
+.diagram svg { width: 100%; height: auto; display: block; }
+.diagram .box { fill: var(--bg); stroke: var(--line); stroke-width: 1.5; }
+.diagram .box-accent { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 1.5; }
+.diagram .t { fill: var(--text); font: 600 14px ui-sans-serif, system-ui, sans-serif; }
+.diagram .s { fill: var(--muted); font: 12px ui-sans-serif, system-ui, sans-serif; }
+.diagram .m { fill: var(--muted); font: 11.5px ui-monospace, Menlo, monospace; }
+.diagram .line { stroke: var(--muted); stroke-width: 1.5; fill: none; }
+.diagram .line-accent { stroke: var(--accent); stroke-width: 1.8; fill: none; }
+.diagram .head { fill: var(--muted); }
+.diagram .head-accent { fill: var(--accent); }
+.pill { display: inline-block; font-size: 0.78rem; padding: 1px 8px; border-radius: 99px; background: var(--code-bg); color: var(--muted); vertical-align: middle; }
+.top { font-size: 0.85rem; }
+@media (max-width: 960px) {
+  .layout { display: block; }
+  nav.toc { position: static; height: auto; border-right: 0; border-bottom: 1px solid var(--line); padding: 20px 16px; }
+  nav.toc ol ol { display: none; }
+  main { padding: 24px 16px 80px; }
+  h1 { font-size: 1.9rem; }
+}
+@media print {
+  nav.toc { display: none; }
+  .layout { display: block; }
+  main { max-width: none; padding: 0; }
+  h2 { break-before: page; border-top: 0; }
+  figure { break-inside: avoid; }
+  a { color: inherit; }
+}
+.lang { font-size: 0.9rem; color: var(--muted); margin: 0 0 1em; } .lang strong { color: var(--text); font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="layout">
+<nav class="toc" aria-label="Contents">
+  <a class="brand" href="#top">
+    <svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8" fill="currentColor"/><path d="M9 9a14 14 0 0 1 14 14M9 15a8 8 0 0 1 8 8" stroke="var(--bg)" stroke-width="3" fill="none" stroke-linecap="round"/><circle cx="10" cy="22" r="2.2" fill="var(--bg)"/></svg>
+    mosquitto-ui
+  </a>
+  <ol>
+    <li><a href="#ueberblick">Overview</a>
+      <ol><li><a href="#funktionen">What the UI does</a></li><li><a href="#aufbau">How it is built</a></li></ol></li>
+    <li><a href="#installation">Installation</a>
+      <ol><li><a href="#voraussetzungen">Requirements</a></li><li><a href="#docker">With Docker Compose</a></li><li><a href="#ohne-docker">Without Docker (systemd)</a></li>
+      <li><a href="#anmeldung">Login</a></li><li><a href="#https">HTTPS and reverse proxy</a></li><li><a href="#erste-schritte">First steps</a></li></ol></li>
+    <li><a href="#konzepte">Concepts</a>
+      <ol><li><a href="#rechte">Clients, groups, roles</a></li><li><a href="#reihenfolge">How the broker decides</a></li><li><a href="#konfig-dateien">Where the configuration lives</a></li></ol></li>
+    <li><a href="#seiten">The pages</a>
+      <ol><li><a href="#s-dashboard">Dashboard</a></li><li><a href="#s-topics">Topics</a></li><li><a href="#s-sitzungen">Sessions</a></li><li><a href="#s-aufzeichnung">Trace</a></li>
+      <li><a href="#s-logs">Logs</a></li><li><a href="#s-clients">Clients</a></li><li><a href="#s-gruppen">Groups and Roles</a></li><li><a href="#s-regeln">Rules</a></li>
+      <li><a href="#s-token">Token login</a></li><li><a href="#s-konfiguration">Configuration</a></li><li><a href="#s-nachrichtenregeln">Message rules</a></li>
+      <li><a href="#s-bridges">Bridges and Victron</a></li><li><a href="#s-zertifikat">Certificate</a></li><li><a href="#s-backups">Backups</a></li>
+      <li><a href="#s-benachrichtigungen">Notifications</a></li><li><a href="#s-import">Import</a></li><li><a href="#s-anmeldung">Login</a></li><li><a href="#s-ui-benutzer">UI users</a></li>
+      <li><a href="#s-protokoll">Audit log</a></li><li><a href="#s-handy">On a phone</a></li></ol></li>
+    <li><a href="#betrieb">Operation</a>
+      <ol><li><a href="#updates">Updates</a></li><li><a href="#sicherung">Backup and migration</a></li><li><a href="#fehlersuche">Troubleshooting</a></li></ol></li>
+    <li><a href="#referenz">Reference</a>
+      <ol><li><a href="#variablen">Environment variables</a></li><li><a href="#pfade">Paths and ports</a></li></ol></li>
+  </ol>
+</nav>
+
+<main id="top">
+<nav class="lang" aria-label="Language"><a href="../index.html" hreflang="de" lang="de">Deutsch</a> · <strong>English</strong> · <a href="../fr/index.html" hreflang="fr" lang="fr">Français</a></nav>
+<h1>mosquitto-ui Handbook</h1>
+<p class="lead">mosquitto-ui is a web interface for the MQTT broker <a href="https://mosquitto.org">Eclipse Mosquitto 2.1</a>. Manage devices and
+permissions, watch live what passes through the broker, and set up bridges, certificates, backups and notifications, all without
+touching a config file by hand.</p>
+<p class="meta">Applies to mosquitto-ui 0.26. The screenshots show a demo installation with made-up devices. This handbook lives
+in the repository under <code>docs/handbuch/en/</code> and in every installation under <code>/handbuch/en/</code>, no login needed.</p>
+
+<!-- ======================================================================================================== -->
+<h2 id="ueberblick">Overview</h2>
+
+<h3 id="funktionen">What the UI does</h3>
+<div class="cards">
+  <div class="card"><h4>Access</h4><p>Clients, groups and roles of Dynamic Security, an access checker, login with access tokens (JWT).</p></div>
+  <div class="card"><h4>Live view</h4><p>Topic tree with values and charts, the sessions of every client, traces of single clients, the broker log.</p></div>
+  <div class="card"><h4>Broker</h4><p>Options and listeners, checked before they are applied, message rules, bridges with Victron GX pairing.</p></div>
+  <div class="card"><h4>TLS</h4><p>Certificates via ACME (Let's Encrypt, ZeroSSL, Google) with DNS challenge, automatic renewal and a TLS listener.</p></div>
+  <div class="card"><h4>Safe operation</h4><p>Encrypted backups to SFTP, FTP, S3, a directory or mail; mails on outages and suspicious log lines; an audit log of all changes.</p></div>
+  <div class="card"><h4>Migration</h4><p>Import of an existing <code>password_file</code>, <code>acl_file</code>, <code>mosquitto.conf</code> and <code>mosquitto.db</code>.</p></div>
+</div>
+
+<h3 id="aufbau">How it is built</h3>
+<p>Two parts run side by side, as Docker containers or as systemd services:</p>
+<div class="diagram" role="img" aria-label="Architecture: the browser reaches the UI through a reverse proxy; the UI talks MQTT to the broker and drops requests into the shared directory, which the agent carries out; devices connect straight to the broker">
+<svg viewBox="0 0 860 330">
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" class="head"/></marker>
+    <marker id="b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" class="head-accent"/></marker>
+  </defs>
+  <rect x="20" y="30" width="150" height="62" rx="10" class="box"/><text x="95" y="56" text-anchor="middle" class="t">Browser</text><text x="95" y="76" text-anchor="middle" class="s">also as an app on a phone</text>
+  <rect x="20" y="210" width="150" height="80" rx="10" class="box"/><text x="95" y="238" text-anchor="middle" class="t">Devices</text><text x="95" y="258" text-anchor="middle" class="s">Shelly, Home Assistant,</text><text x="95" y="274" text-anchor="middle" class="s">Victron GX, ESP32 …</text>
+  <rect x="235" y="30" width="150" height="62" rx="10" class="box"/><text x="310" y="56" text-anchor="middle" class="t">Reverse proxy</text><text x="310" y="76" text-anchor="middle" class="s">HTTPS, e.g. Caddy</text>
+  <rect x="450" y="20" width="200" height="82" rx="12" class="box-accent"/><text x="550" y="50" text-anchor="middle" class="t">mosquitto-ui</text><text x="550" y="70" text-anchor="middle" class="s">Web UI and API, Java 21</text><text x="550" y="88" text-anchor="middle" class="m">:8080</text>
+  <rect x="450" y="196" width="390" height="112" rx="12" class="box-accent"/>
+  <text x="470" y="222" class="t">Broker</text>
+  <rect x="470" y="234" width="160" height="58" rx="8" class="box"/><text x="550" y="258" text-anchor="middle" class="t">Mosquitto 2.1</text><text x="550" y="278" text-anchor="middle" class="s">+ inspect, token-auth</text>
+  <rect x="660" y="234" width="160" height="58" rx="8" class="box"/><text x="740" y="258" text-anchor="middle" class="t">Agent</text><text x="740" y="278" text-anchor="middle" class="s">checks, loads, starts</text>
+  <rect x="680" y="112" width="160" height="56" rx="8" class="box"/><text x="760" y="136" text-anchor="middle" class="t">Shared directory</text><text x="760" y="155" text-anchor="middle" class="m">conf.d, control</text>
+  <path d="M170 61H233" class="line" marker-end="url(#a)"/>
+  <path d="M385 61H448" class="line" marker-end="url(#a)"/>
+  <path d="M170 250H468" class="line" marker-end="url(#a)"/><text x="300" y="242" text-anchor="middle" class="m">MQTT 1883 / 8883</text>
+  <path d="M550 102V232" class="line-accent" marker-end="url(#b)" marker-start="url(#b)"/><text x="540" y="160" text-anchor="end" class="m">MQTT: $CONTROL, $SYS</text>
+  <path d="M650 70H760V110" class="line-accent" marker-end="url(#b)"/><text x="664" y="62" class="m">writes requests</text>
+  <path d="M760 168V232" class="line-accent" marker-end="url(#b)" marker-start="url(#b)"/>
+  <path d="M660 263H632" class="line" marker-end="url(#a)"/>
+</svg>
+</div>
+<ul>
+  <li><strong>The broker</strong> is Mosquitto 2.1 with Dynamic Security (users and permissions) and two plugins from mosquitto-ui:
+    <em>inspect</em> (sessions, traces, message rules) and <em>token-auth</em> (login with JWT).</li>
+  <li><strong>The agent</strong> starts Mosquitto and does what the UI asks for: check a new configuration with
+    <code>mosquitto --test-config</code>, apply it, reload or restart, install certificates. If the broker rejects
+    a configuration, the old one stays in effect. This way the UI needs neither the Docker socket nor root.</li>
+  <li><strong>The UI</strong> talks to the broker over MQTT (as user <code>admin</code> via <code>$CONTROL</code> and
+    <code>$SYS</code>) and to the agent through files in the shared directory. Its own data (settings,
+    encrypted secrets, history) lives in the state directory.</li>
+</ul>
+
+<!-- ======================================================================================================== -->
+<h2 id="installation">Installation</h2>
+
+<h3 id="voraussetzungen">Requirements</h3>
+<ul>
+  <li>A Linux server (amd64 or arm64), with Docker and Docker Compose, <em>or</em> with systemd for the install without Docker.</li>
+  <li>512 MB of RAM for the UI. The broker needs little.</li>
+  <li>Open ports: <code>1883</code> (MQTT), <code>8883</code> (MQTT over TLS, once there is a certificate), <code>8080</code> for the UI,
+    or better only the reverse proxy on <code>443</code>.</li>
+  <li>For login, nothing else (UI users with a password). If you like, add an identity provider: Keycloak, authentik and others with OpenID Connect, or accounts at Google, Microsoft, GitHub and the like.</li>
+  <li>For a certificate: a domain and a DNS provider with an API (acme-dns or PowerDNS).</li>
+</ul>
+
+<h3 id="docker">With Docker Compose</h3>
+<p>A server needs only two files from the repository: <code>deploy/compose.yaml</code> and <code>deploy/env.example</code>.</p>
+<ol class="steps">
+  <li><p>Create a directory and fetch the files:</p>
+<pre><code>sudo mkdir -p /opt/mosquitto && cd /opt/mosquitto
+# copy compose.yaml and env.example from deploy/ to here
+cp env.example .env
+chmod 600 .env</code></pre></li>
+  <li><p>Fill in <code>.env</code>. The essentials:</p>
+<table>
+<tr><th>Variable</th><th>Meaning</th></tr>
+<tr><td><code>MOSQUITTO_PASSWORD</code></td><td>Password of the broker user <code>admin</code>, <strong>at least 12 characters</strong>
+  (<code>openssl rand -base64 24</code>). Read only on the very first start. With a shorter one, the broker starts without users and rejects everyone.</td></tr>
+<tr><td><code>MOSQUITTO_UI_AUTH</code></td><td>leave as it is. <code>local</code> keeps the local login on at all times, as the emergency access (see <a href="#anmeldung">Login</a>).</td></tr>
+<tr><td><code>OIDC_ISSUER</code>, <code>OIDC_CLIENT_ID</code>, <code>OIDC_CLIENT_SECRET</code></td><td>only from installations before 0.26: they become a provider at the first start. New installations leave them empty.</td></tr>
+<tr><td><code>MOSQUITTO_UI_SECRET_KEY</code></td><td>Encrypts secrets and signs backups (<code>openssl rand -base64 32</code>). Keep a copy away from the server.</td></tr>
+<tr><td><code>MOSQUITTO_UI_VERSION</code></td><td>Version of both images. A fixed version is better than <code>latest</code>.</td></tr>
+</table></li>
+  <li><p>Start:</p>
+<pre><code>docker compose up -d
+docker compose logs -f mosquitto-ui</code></pre>
+  <p>The first password of <code>admin</code> is in:</p>
+<pre><code>docker compose exec mosquitto-ui cat /var/lib/mosquitto-ui/initial-password</code></pre></li>
+</ol>
+<p>The data lives in four volumes: <code>data</code> (users, permissions, retained messages, certificates), <code>state</code>
+(settings of the UI), <code>shared</code> (configuration the UI writes for the broker) and <code>backups</code> (local backup targets).
+The UI runs read-only, without privileges, as its own user.</p>
+
+<h3 id="ohne-docker">Without Docker (systemd)</h3>
+<p>Every release comes with <code>mosquitto-ui-&lt;version&gt;.tar.gz</code>. Its script installs two systemd services and builds
+Mosquitto 2.1.2 from source, because most distributions still ship 2.0. Tested with Debian 12 and 13 and Rocky Linux 9;
+Ubuntu and Fedora work the same way.</p>
+<pre><code>V=0.26.0
+curl -fLO https://github.com/alexsxb/mosquitto-ui/releases/download/v$V/mosquitto-ui-$V.tar.gz
+curl -fLO https://github.com/alexsxb/mosquitto-ui/releases/download/v$V/mosquitto-ui-$V.tar.gz.sha256
+sha256sum -c mosquitto-ui-$V.tar.gz.sha256
+tar xzf mosquitto-ui-$V.tar.gz && cd mosquitto-ui-$V
+sudo ./install.sh</code></pre>
+<p>The first run takes one to two minutes. At the end it tells you where the UI runs and where the first password is:</p>
+<pre><code>==> mosquitto-ui 0.26.0 runs on http://mqtt01:8080
+  MQTT: port 1883, broker user admin, password in /etc/mosquitto-ui/broker.env (MOSQUITTO_DYNSEC_PASSWORD)
+  Login: see /var/lib/mosquitto-ui/state/initial-password (goes away after the first login)</code></pre>
+<table>
+<tr><th>Service</th><th>What</th><th>Runs as</th></tr>
+<tr><td><code>mosquitto-ui-broker</code></td><td>Agent and Mosquitto, log with <code>journalctl -u mosquitto-ui-broker</code></td><td>agent root, Mosquitto <code>mosquitto</code></td></tr>
+<tr><td><code>mosquitto-ui</code></td><td>the UI, hardened unit (only its three data directories are writable)</td><td><code>mosquitto-ui</code></td></tr>
+</table>
+<p>Options of <code>install.sh</code>: <code>--port</code> (UI, default 8080), <code>--no-start</code>,
+<code>--skip-packages</code>. Settings then live in <code>/etc/mosquitto-ui/mosquitto-ui.env</code>; after a change, run
+<code>sudo systemctl restart mosquitto-ui</code>. A Mosquitto package from the distribution must not run on 1883 at the same time:
+<code>sudo systemctl disable --now mosquitto</code>.</p>
+<div class="warn"><p><strong>Important:</strong> Keep <code>MOSQUITTO_UI_SECRET_KEY</code> from <code>/etc/mosquitto-ui/mosquitto-ui.env</code> in a
+safe place. Without it, a new server cannot read encrypted settings, local users or the backup signatures.</p></div>
+<p>All paths, updating and removal: <a href="#pfade">Paths</a>, <a href="#updates">Updates</a> and <code>docs/standalone.md</code>.</p>
+
+<h3 id="anmeldung">Login</h3>
+<figure><img src="img/01-anmeldung.png" alt="Start page with login form and buttons for Keycloak and GitHub" loading="lazy" width="1280" height="820"><figcaption>The local login, and below it one button per identity provider.</figcaption></figure>
+<p>There are two ways in, both set up on the page <a href="#s-anmeldung">Login</a>: <strong>UI users</strong> with a password
+(the local login) and any number of <strong>identity providers</strong>.</p>
+<h4>The first start</h4>
+<ul>
+  <li>As long as no provider is on, the local login applies. The first start creates <code>admin</code>, with <code>MOSQUITTO_UI_LOCAL_AUTH_INITIAL_PASSWORD</code>
+    or a generated password in <code>initial-password</code> in the state directory. The file goes away after the first login.</li>
+  <li>Add more users on the page <a href="#s-ui-benutzer">UI users</a>. Every user may do everything.</li>
+  <li>Passwords need at least 12 characters and are stored as PBKDF2-SHA256 with 600,000 iterations. After 5 failed attempts in 15 minutes
+    for one name or from one address, every further attempt has to wait.</li>
+  <li>A session ends after 8 hours without a request, at the latest 7 days after login, and at once when the password changes.</li>
+</ul>
+<h4>Identity providers</h4>
+<p>Under <a href="#s-anmeldung">Login</a> → <em>Add provider</em> there are templates for Keycloak, authentik, Authelia, ZITADEL,
+Pocket ID, Kanidm, Google, Microsoft Entra ID, Apple, GitHub, GitLab, Gitea/Forgejo, Okta, Auth0, Amazon Cognito and any other
+provider with OpenID Connect. At the provider, you always create a confidential client with the authorization code flow. With Keycloak as the example:</p>
+<ol>
+  <li><em>Clients → Create client</em>, OpenID Connect, client ID e.g. <code>mosquitto-ui</code>.</li>
+  <li><em>Client authentication</em> on (confidential client), <em>Standard flow</em> on.</li>
+  <li><em>Valid redirect URIs</em>: the <strong>callback address</strong> the dialog shows, <code>https://&lt;host of the UI&gt;/auth/sso/keycloak</code>
+    (or <code>https://&lt;host of the UI&gt;/*</code>). <em>Valid post logout redirect URIs</em>: <code>https://&lt;host of the UI&gt;/*</code>.</li>
+  <li>Create a role or group for the admins, e.g. <code>mosquitto-admin</code>, and enter it in the dialog under <em>Who may come in?</em>.</li>
+  <li>Copy the address of the realm, the client ID and the secret from <em>Credentials</em> into the dialog. Check with <em>Test</em>.</li>
+</ol>
+<p>Once a provider is on, you can turn the local login off. If you locked yourself out, set <code>MOSQUITTO_UI_AUTH=local</code>
+and restart the UI: the local login applies again, whatever the page says. <strong>Forgot the password:</strong> stop the UI,
+delete <code>users.json</code> in the state directory, start it with <code>MOSQUITTO_UI_AUTH=local</code>: <code>admin</code> is created anew.</p>
+<h4>From versions before 0.26</h4>
+<p>If you had set <code>QUARKUS_OIDC_*</code> (or <code>OIDC_*</code> in <code>.env</code>), the first start of 0.26 shows
+the same provider on the page Login, with the role from <code>MOSQUITTO_UI_ADMIN_ROLE</code>. The local login stays off. The callback
+address <code>/auth/sso/keycloak</code> is new: with <code>https://&lt;host&gt;/*</code> as Valid redirect URI, it already fits.</p>
+<p>For Keycloak there is a login theme in the style of the UI under <code>docker/keycloak-theme/mosquitto-ui</code>. Select it for this client only
+(<em>Login settings → Login theme</em>).</p>
+
+<h3 id="https">HTTPS and reverse proxy</h3>
+<p>The UI only speaks HTTP. Put a proxy with TLS in front of it. It needs to pass <code>X-Forwarded-*</code> for the login redirects
+and must not buffer responses for the live pages (Topics, Logs: server-sent events).</p>
+<h4>Caddy</h4>
+<pre><code>mqtt-ui.example.com {
+    reverse_proxy 127.0.0.1:8080
+}</code></pre>
+<h4>nginx</h4>
+<pre><code>location / {
+    proxy_pass http://127.0.0.1:8080;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_buffering off;
+    proxy_read_timeout 1h;
+}</code></pre>
+<p>Then tell the UI which proxies to trust: in the Docker setup, <code>TRUSTED_PROXIES</code> in <code>.env</code>; without Docker, uncomment the
+<code>QUARKUS_HTTP_PROXY_*</code> lines in <code>mosquitto-ui.env</code>. To make the UI reachable only through the proxy: <code>QUARKUS_HTTP_HOST=127.0.0.1</code>.</p>
+<div class="note"><p><strong>MQTT through a proxy:</strong> If e.g. Traefik forwards MQTT over TCP to the broker, the broker only sees the proxy's address.
+For this, the Configuration page offers <em>Listener for a proxy</em> with the PROXY protocol. The normal port 1883 stays without it.</p></div>
+
+<h3 id="erste-schritte">First steps</h3>
+<ol class="steps">
+  <li><strong>Log in</strong>, change the password under <a href="#s-ui-benutzer">UI users</a> or create your own users, and if you have one,
+    set up the identity provider under <a href="#s-anmeldung">Login</a>.</li>
+  <li><strong>Back up the secret key</strong> (see above).</li>
+  <li><strong>Create roles and clients</strong>: first a role with the topics one kind of device needs, then one client with a
+    password per device, see <a href="#rechte">Concepts</a>. Verify with the <a href="#s-regeln">access check</a>.</li>
+  <li><strong>Turn on the log</strong>: under <a href="#s-konfiguration">Configuration</a>, pick a log level other than “Off”.</li>
+  <li><strong>Order a certificate</strong>. The UI then sets up the TLS listener on 8883 (<a href="#s-zertifikat">Certificate</a>).</li>
+  <li><strong>Create a backup job</strong> and run it once by hand (<a href="#s-backups">Backups</a>).</li>
+  <li><strong>Notifications</strong>: enter a mail server and recipients, send a test mail.</li>
+</ol>
+
+<!-- ======================================================================================================== -->
+<h2 id="konzepte">Concepts</h2>
+
+<h3 id="rechte">Clients, groups, roles</h3>
+<p>Mosquitto's <em>Dynamic Security</em> plugin manages users and permissions. The UI presents it like this:</p>
+<table>
+<tr><th>Term</th><th>What</th></tr>
+<tr><td>Client</td><td>A login at the broker: user name and password. A device can connect with any client ID; several connections with the same login are possible.</td></tr>
+<tr><td>Role</td><td>A list of rules (ACLs): which topics may be published, received, subscribed to.</td></tr>
+<tr><td>Group</td><td>Several clients with the same roles, e.g. all Shellys.</td></tr>
+<tr><td>Default access</td><td>What applies when no rule matches. Out of the box: publish and subscribe denied, receive and unsubscribe allowed.</td></tr>
+</table>
+<p>Rule types of a role: <code>publishClientSend</code> (the client may send), <code>publishClientReceive</code> (the client gets messages),
+<code>subscribeLiteral</code>/<code>subscribePattern</code> (subscribe, exact or with <code>+</code>/<code>#</code>), <code>unsubscribe…</code>.
+In topics, <code>%c</code> stands for the client ID and <code>%u</code> for the user name.</p>
+<div class="warn"><p><strong>Wildcard subscriptions:</strong> Mosquitto 2.1 rejects subscriptions with <code>+</code> or <code>#</code> unless the role
+has “Allow wildcard subscriptions”. The client only gets “subscription denied”. The UI turns it on for new roles.</p></div>
+<div class="note"><p><strong>The user <code>admin</code></strong> is there for the UI. It may use <code>$CONTROL</code> and <code>$SYS</code>, but cannot
+send messages on normal topics. Devices get their own clients. The UI locks <code>admin</code> and everything it needs against
+changes, so it cannot lock itself out.</p></div>
+
+<h3 id="reihenfolge">How the broker decides</h3>
+<ol>
+  <li>First the client's roles, then the roles of its groups, each by priority (highest first).</li>
+  <li>Within a role, an exact rule comes before patterns, whatever the priority.</li>
+  <li>The first matching rule decides. If none matches, the default access applies.</li>
+</ol>
+<p>The access check on the <a href="#s-regeln">Rules</a> page works out exactly this and names the rule that decides.</p>
+
+<h3 id="konfig-dateien">Where the configuration lives</h3>
+<ul>
+  <li><code>mosquitto.conf</code> is yours (fixed in the image; without Docker <code>/etc/mosquitto-ui/mosquitto.conf</code>). It loads the plugins and,
+    at the end, the UI's files via <code>include_dir</code>.</li>
+  <li><code>conf.d/mosquitto-ui.conf</code> is written by the UI: the options and listeners of the Configuration page.</li>
+  <li><code>conf.d/mosquitto-ui-bridges.conf</code>: the bridges. They are kept separate because Mosquitto has to read their passwords in plain text.</li>
+  <li>The agent checks every change before applying it. Some options only take effect after a restart, which briefly disconnects all clients. The UI
+    tells you beforehand whether it will reload or restart.</li>
+</ul>
+
+<!-- ======================================================================================================== -->
+<h2 id="seiten">The pages</h2>
+<p>On the left, the navigation in three groups: <em>Overview</em> for watching, <em>Access</em> for permissions, <em>Broker</em> for settings. Top
+right: language (German, English, French) and light/dark. Bottom left: the user menu with the handbook and <em>Log out</em>.</p>
+
+<h3 id="s-dashboard">Dashboard</h3>
+<figure><img src="img/02-dashboard.png" alt="Dashboard with key figures and history" loading="lazy" width="1280" height="820"><figcaption>Problems come first: here a disconnected bridge.</figcaption></figure>
+<ul>
+  <li>Warnings at the top: disconnected bridges, clients that are usually connected but missing, failed or overdue backups, an expiring certificate.</li>
+  <li>Key figures from <code>$SYS</code>: connected clients, subscriptions, retained messages, uptime. The tiles lead to the matching page.</li>
+  <li>History over 24 hours or 7 days (connections, messages, data, memory), one point every 5 minutes.</li>
+</ul>
+
+<h3 id="s-topics">Topics</h3>
+<figure><img src="img/03-topics.png" alt="Topic tree with a selected value and chart" loading="lazy" width="1280" height="820"><figcaption>Live tree; on the right, details with chart and publishing.</figcaption></figure>
+<ul>
+  <li>Everything that passes through the broker, as a tree with the latest value, while the page is open. Search across topics and values, filter <em>Retained only</em>.</li>
+  <li>On the right: formatted JSON, QoS, retained, the values since the page was opened, a chart (numbers, also numbers inside JSON; pinning keeps it in the browser).</li>
+  <li><strong>Publish</strong> to a topic, with QoS and retain. This also reaches bridges, e.g. <code>W/…</code> of a Victron GX.</li>
+  <li><strong>Delete retained</strong> for a topic and everything below it, after a confirmation that shows the count.</li>
+  <li>For all this, the UI temporarily creates the broker user <code>mosquitto-ui-monitor</code> and removes it one minute after the last viewer leaves.</li>
+</ul>
+
+<h3 id="s-sitzungen">Sessions</h3>
+<figure><img src="img/04-sitzungen.png" alt="List of sessions" loading="lazy" width="1280" height="820"><figcaption>Every session with address, MQTT version, subscriptions and messages.</figcaption></figure>
+<p>Every session the broker holds, connected or kept for later (persistent sessions): client ID, user, address, keepalive,
+subscriptions with QoS, sent and received messages with time. Expand a row to see its subscriptions. The buttons on the right start a trace
+or open the log of that client. Counts start when the broker starts.</p>
+
+<h3 id="s-aufzeichnung">Trace</h3>
+<figure><img src="img/05-aufzeichnung.png" alt="Running trace with events" loading="lazy" width="1280" height="820"><figcaption>A trace of all clients whose ID starts with <code>shelly</code>.</figcaption></figure>
+<ul>
+  <li>Records for up to one hour what clients do: connect and disconnect with the reason, subscriptions, every message sent and delivered (the first bytes),
+    and what the broker refused.</li>
+  <li>For one client ID, all with a prefix (<code>sensor-*</code>), a topic filter, or both. One trace at a time, at most 50,000 events.</li>
+  <li>Download as JSON, payloads as text or base64. The last five stay until the UI restarts.</li>
+</ul>
+<div class="note"><p><strong>Typical use:</strong> A device sends no values. Start a trace on its client ID and restart the device. You see
+whether it connects, what it subscribes to and whether the broker refuses anything.</p></div>
+
+<h3 id="s-logs">Logs</h3>
+<figure><img src="img/06-logs.png" alt="Broker log" loading="lazy" width="1280" height="820"><figcaption>The log live, with markers for connections and refusals.</figcaption></figure>
+<ul>
+  <li>The broker log live, like <code>tail -f</code>. Scrolling up stops following; <em>Pause</em> freezes the view.</li>
+  <li>Search, a choice of <strong>Levels</strong> with a count per level, filters (errors and refusals, connections, subscriptions, bridges), download.</li>
+  <li>Levels the broker does not write according to <code>log_type</code> are greyed out. If the log level is “Off”, the page shows a warning.</li>
+  <li>From Clients and Sessions, the log button opens only the lines of one client.</li>
+  <li>The UI keeps 10,000 lines, also across a restart. Mosquitto never hands out debug lines; they only appear in <code>docker logs</code> or the journal.</li>
+</ul>
+
+<h3 id="s-clients">Clients</h3>
+<figure><img src="img/07-clients.png" alt="Table of clients" loading="lazy" width="1280" height="820"><figcaption>Clients with roles, groups, connections and last login.</figcaption></figure>
+<ul>
+  <li>Create with password, roles and groups; switch between enabled and disabled (disabled: cannot log in).</li>
+  <li>Per row: edit, change password, <em>Disconnect</em> (all connections of this login; most devices come straight back), log, delete.</li>
+  <li>The UI tracks <em>Last connected</em> with the address itself; it checks every 15 seconds.</li>
+  <li>Below, a separate table for clients that came with an access token.</li>
+</ul>
+<figure><img src="img/08-client-bearbeiten.png" alt="Edit client dialog" loading="lazy" width="1280" height="820"><figcaption>Roles and groups of a client.</figcaption></figure>
+
+<h3 id="s-gruppen">Groups and Roles</h3>
+<figure><img src="img/10-rollen.png" alt="Roles with their rules" loading="lazy" width="1280" height="820"><figcaption>Roles with their rules. Roles with a lock belong to the UI.</figcaption></figure>
+<ul>
+  <li><strong>Roles:</strong> add rules (type, topic, priority, allow/deny), allow wildcard subscriptions.</li>
+  <li><strong>Groups:</strong> roles and members. The group for anonymous clients is marked.</li>
+</ul>
+<figure><img src="img/09-gruppen.png" alt="Groups" loading="lazy" width="1280" height="820"><figcaption>Groups with their roles and members.</figcaption></figure>
+
+<h3 id="s-regeln">Rules</h3>
+<figure><img src="img/11-regeln.png" alt="Rules page with the access check" loading="lazy" width="1280" height="820"><figcaption>Access check, default access and the group for clients without a login.</figcaption></figure>
+<ul>
+  <li><strong>Check access:</strong> enter a client and a topic. For publish, receive, subscribe and unsubscribe, the page tells you whether it is allowed and which rule decides.</li>
+  <li><strong>Default access</strong> for everything no rule matches. A change applies to everyone at once.</li>
+  <li><strong>Clients without a login:</strong> they get the roles of this group, only with <code>allow_anonymous true</code>.</li>
+</ul>
+
+<h3 id="s-token">Token login</h3>
+<figure><img src="img/12-token-anmeldung.png" alt="Token login page" loading="lazy" width="1280" height="820"><figcaption>Identity providers, self-issued tokens and blocks.</figcaption></figure>
+<ul>
+  <li>Clients log in with an access token (JWT) as the password, e.g. from Keycloak. The broker itself checks signature, issuer, audience and expiry.</li>
+  <li>Per identity provider: issuer, audience, the claims for user name and groups, which groups get which roles, <em>Bind client id to the user name</em>.</li>
+  <li><strong>Issued by mosquitto-ui:</strong> tokens for devices without an identity provider, with roles you can change later. Revoking takes effect at once.</li>
+  <li><strong>Blocked:</strong> keep a user, a subject or a single token out until a given time. <strong>Rejected tokens</strong> are listed with the reason.</li>
+  <li>In detail with Keycloak: <code>docs/token-login-keycloak.md</code>.</li>
+</ul>
+
+<h3 id="s-konfiguration">Configuration</h3>
+<figure><img src="img/13-konfiguration.png" alt="Configuration, Broker tab" loading="lazy" width="1280" height="820"><figcaption>Broker options in groups, with default values.</figcaption></figure>
+<ul>
+  <li><strong>Broker:</strong> logging (<code>log_type</code>; “Off” turns off the whole log), clients (anonymous, persistent sessions, keepalive), messages and limits, <code>$SYS</code>.</li>
+  <li><strong>Listeners:</strong> more ports, TLS with the UI's certificate, websockets, PROXY protocol.</li>
+  <li><strong>Text:</strong> edit the UI's file directly.</li>
+  <li>Before applying, the UI shows what changes and whether the broker reloads (clients stay connected) or restarts (everyone is briefly disconnected).</li>
+  <li><strong>Reset:</strong> selected parts back to the state of a fresh install, after typing <code>RESET</code>.</li>
+</ul>
+<figure><img src="img/14-listener.png" alt="Configuration, Listeners tab" loading="lazy" width="1280" height="820"><figcaption>Listeners from <code>mosquitto.conf</code> and those of the UI.</figcaption></figure>
+
+<h3 id="s-nachrichtenregeln">Message rules</h3>
+<figure><img src="img/15-nachrichtenregeln.png" alt="Message rules" loading="lazy" width="1280" height="820"><figcaption>A content rule and a rate limit.</figcaption></figure>
+<ul>
+  <li><strong>Content rules:</strong> what messages on a topic must be: valid JSON, a maximum size, required fields with a type.</li>
+  <li><strong>Rate limits:</strong> how many messages a client may send (<em>Per second</em> and <em>At once</em>).</li>
+  <li>The broker drops what does not fit before anyone gets it. Optionally it disconnects the client, or the UI sends a mail.</li>
+</ul>
+
+<h3 id="s-bridges">Bridges and Victron</h3>
+<figure><img src="img/16-bridges.png" alt="Bridges" loading="lazy" width="1280" height="820"><figcaption>A bridge to a Cerbo GX, currently unreachable.</figcaption></figure>
+<ul>
+  <li>Connections to other brokers, with topics per direction (<code>in</code>, <code>out</code>, <code>both</code>), prefixes, state and warnings about loops.</li>
+  <li><strong>Connect Victron GX</strong> sets up a bridge in one step, read-only or both ways. With Venus OS 3.80 or later it uses pairing
+    (<em>Settings → Integrations → MQTT Devices</em>, 120 seconds).</li>
+  <li>The UI keeps the GX awake (keepalive every 30 seconds). If the UI is not running, values stop after one minute.</li>
+  <li>Turning a bridge off keeps it in the file, without a restart.</li>
+</ul>
+
+<h3 id="s-zertifikat">Certificate</h3>
+<figure><img src="img/17-zertifikat.png" alt="Certificate page" loading="lazy" width="1280" height="820"><figcaption>No certificate yet.</figcaption></figure>
+<ul>
+  <li>Ordered via ACME with DNS challenge through acme-dns or the PowerDNS API. CAs: Let's Encrypt (try staging first!), ZeroSSL, Google Trust Services, any other by URL.</li>
+  <li>Certificates come in <strong>sets</strong> (e.g. staging and production). One is active and renews itself in the last third of its lifetime.</li>
+  <li><em>Set up the TLS listener automatically</em> creates the listener on 8883 with the first certificate (one restart). Renewals come with a reload; clients stay connected.</li>
+  <li>Only the broker gets the private key; the UI cannot read it back.</li>
+</ul>
+
+<h3 id="s-backups">Backups</h3>
+<figure><img src="img/18-backups.png" alt="Backups with a job and a target" loading="lazy" width="1280" height="820"><figcaption>A nightly job to a local target.</figcaption></figure>
+<ul>
+  <li><strong>Targets:</strong> SFTP, FTP/FTPS, S3, a directory, e-mail. <strong>Jobs:</strong> what, where, when (daily, weekly, monthly, by hand), encrypted with a password or GPG.</li>
+  <li>Parts: access, configuration, bridges, certificates, retained messages, audit log, backup settings.</li>
+  <li><strong>Restore</strong> from a target or an uploaded file. It replaces the selected parts and restarts the broker. Archives are signed with the secret key.</li>
+  <li>Encrypted backups can be opened without the UI too: <code>openssl enc -d -aes-256-cbc -pbkdf2 -iter 600000 -md sha256 -in FILE.zip.enc -out FILE.zip</code>.</li>
+</ul>
+
+<h3 id="s-benachrichtigungen">Notifications</h3>
+<figure><img src="img/19-benachrichtigungen.png" alt="Notifications" loading="lazy" width="1280" height="820"><figcaption>Recipients, mail server and which mails go out.</figcaption></figure>
+<table>
+<tr><th>Mail</th><th>When</th></tr>
+<tr><td>Broker unreachable</td><td>the UI has had no connection for 5 minutes</td></tr>
+<tr><td>Bridge disconnected</td><td>a bridge has been disconnected for 5 minutes</td></tr>
+<tr><td>Client missing</td><td>a client that is usually connected for long has been gone for 15 minutes; exceptions by name</td></tr>
+<tr><td>Certificate not renewed, Backup failed</td><td>a renewal or a backup failed</td></tr>
+<tr><td>Message rule refused messages</td><td>a rule with mail dropped messages; at most once an hour</td></tr>
+<tr><td>Error in the log</td><td>the broker wrote a line of level Error; at most one mail an hour</td></tr>
+<tr><td>Many rejected logins</td><td>10 in 10 minutes, with client IDs and addresses</td></tr>
+</table>
+<p>After an outage, a second mail follows once everything works again. If the whole server goes down, the UI cannot send anything. For that case,
+check <code>/q/health</code> from outside.</p>
+
+<h3 id="s-import">Import</h3>
+<figure><img src="img/20-import.png" alt="Import" loading="lazy" width="1280" height="820"><figcaption>Upload the files of an existing broker.</figcaption></figure>
+<ul>
+  <li>For migration: <code>password_file</code>, <code>acl_file</code>, <code>mosquitto.conf</code>/<code>conf.d</code>, <code>mosquitto.db</code>, one by one or as a ZIP.</li>
+  <li>The check recognizes each file by its content and shows a preview without changing anything. Then pick the parts.</li>
+  <li>Password hashes are taken over, so devices keep their passwords. Every user gets a role <code>imported-&lt;user&gt;</code>.</li>
+</ul>
+
+<h3 id="s-anmeldung">Login</h3>
+<figure><img src="img/24-anmeldung.png" alt="Login page with the local login, Keycloak and one login turned away" loading="lazy" width="1280" height="820"><figcaption>Local login, providers, and who was turned away.</figcaption></figure>
+<ul>
+  <li><strong>Local login</strong>: on or off. It can only go off once a provider is on, and the last provider can only go off once the
+    local login is on. So there is always a way in.</li>
+  <li>Each <strong>provider</strong> shows its callback address to copy, the address of the provider, who may come in and when it was last used.</li>
+  <li><strong>Logins turned away</strong>: people who logged in at the provider but fit no rule, with the roles from the token.
+    <em>Let in</em> lets the person in with one click, under their own name or as one of the UI users.</li>
+</ul>
+<figure><img src="img/25-provider.png" alt="Dialog of a provider with setup hint and callback address" loading="lazy" width="1280" height="820"><figcaption>The dialog tells you what to set up at the provider.</figcaption></figure>
+<p><strong>Who may come in?</strong> One rule that fits is enough:</p>
+<ul>
+  <li><em>Everyone who can log in at this provider</em>: when the provider itself decides who may use the client. Not with Google, GitHub or Apple, where everyone has an account.</li>
+  <li><em>Roles or groups</em> from the token, e.g. <code>mosquitto-admin</code>. The template knows where they are in the token; you can change it under <em>Advanced</em>.</li>
+  <li><em>Organisations and teams</em> on GitHub: <code>org</code> or <code>org/team</code>.</li>
+  <li><em>People allowed</em>: an e-mail address, <code>*@example.org</code> for a whole domain, or a user name. Only verified
+    e-mail addresses count. With a UI user next to it, the login counts as that user.</li>
+</ul>
+<p>If the connection settings of a provider change, or fewer people may come in, its sessions end; a new name or more people allowed
+leave them as they are. <em>Log out</em> also logs out at the provider, if it supports that. Details: <code>docs/anmeldung.md</code>.</p>
+
+<h3 id="s-ui-benutzer">UI users</h3>
+<figure><img src="img/21-ui-benutzer.png" alt="UI users" loading="lazy" width="1280" height="820"><figcaption>Users with a password, for the local login and as a target for people from a provider.</figcaption></figure>
+<p>Who may log in to the UI with a password: create users, set a password (this ends the user's sessions), end sessions, delete.
+You cannot delete yourself or the last user. Even with the local login off, you can map people from a provider to them on the page Login.
+These users have nothing to do with the MQTT clients.</p>
+
+<h3 id="s-protokoll">Audit log</h3>
+<figure><img src="img/22-protokoll.png" alt="Audit log of changes" loading="lazy" width="1280" height="820"><figcaption>Who changed what, and when.</figcaption></figure>
+<p>Every change made through the UI, with user, time and result, plus logins (with the provider), logins turned away and failed attempts of the local login. Passwords, keys
+and message payloads never appear in it. It keeps the last 20,000 entries and is a separate part in backups.</p>
+
+<h3 id="s-handy">On a phone</h3>
+<figure class="phone"><img src="img/23-handy.png" alt="Dashboard on a phone" loading="lazy" width="390" height="844"><figcaption>At the bottom, the bar with Dashboard, Topics, Clients and More.</figcaption></figure>
+<p>On a phone, a bar at the bottom leads to the main pages, and <em>More</em> to the rest, to language, appearance and the handbook. Over HTTPS you can
+add the UI to the home screen as an app.</p>
+
+<!-- ======================================================================================================== -->
+<h2 id="betrieb">Operation</h2>
+
+<h3 id="updates">Updates</h3>
+<table>
+<tr><th>Setup</th><th>Update</th></tr>
+<tr><td>Docker</td><td>Set <code>MOSQUITTO_UI_VERSION</code> in <code>.env</code>, then <code>docker compose pull &amp;&amp; docker compose up -d</code>. A new broker image restarts the broker.</td></tr>
+<tr><td>without Docker</td><td>Unpack the new tarball, run <code>sudo ./install.sh</code>. The broker only restarts if Mosquitto, the plugins or the agent changed. To go back, install the old tarball the same way.</td></tr>
+</table>
+<p>The UI and the broker image belong together and have the same version.</p>
+
+<h3 id="sicherung">Backup and migration</h3>
+<ul>
+  <li>A backup job with all parts covers users, permissions, configuration, bridges, certificates and retained messages.</li>
+  <li>Keep the secret key as well. UI users and identity providers belong to the part <em>Access</em>. A restore adds missing
+    UI users, and whether the local login is on stays as it is on the new server.</li>
+  <li><strong>Migration</strong>, also from Docker to systemd: create a backup, install fresh (without Docker, use <code>--no-start</code>), enter the same
+    <code>MOSQUITTO_UI_SECRET_KEY</code>, start, then restore the backup on the Backups page.</li>
+</ul>
+
+<h3 id="fehlersuche">Troubleshooting</h3>
+<table>
+<tr><th>What you see</th><th>The cause</th></tr>
+<tr><td>Device does not connect, log shows <code>disconnected: not authorised</code></td><td>Wrong password, client disabled or unknown. Mosquitto 2.1 writes the same line for all three.</td></tr>
+<tr><td>Device connects but gets nothing</td><td>Subscription refused: a rule is missing or the role does not allow wildcard subscriptions. The access check and a trace show it.</td></tr>
+<tr><td>Logs page stays empty</td><td>Log level “Off” under Configuration, or <code>log_dest topic</code> is missing from your own <code>mosquitto.conf</code>.</td></tr>
+<tr><td>“No connection to the broker”</td><td>The broker is not running, or <code>MOSQUITTO_PASSWORD</code> no longer matches the user <code>admin</code>.</td></tr>
+<tr><td>After logging in at the provider, back on the start page with “The provider cannot be reached or refused the login”</td><td>The provider does not answer the UI or refuses it. The UI log has <code>Login at /auth/sso/… failed</code> with the reason; on the Login page, <em>Test</em> the address. An error at the provider itself: usually the callback address.</td></tr>
+<tr><td>No broker user after the first start</td><td>Password shorter than 12 characters. Empty the data volume and start again with a longer password.</td></tr>
+<tr><td>Login redirects in a loop</td><td>The proxy does not set <code>X-Forwarded-Proto</code> or is not configured as trusted.</td></tr>
+<tr><td>Topics or Logs are not live</td><td>The proxy buffers: for nginx, <code>proxy_buffering off</code>.</td></tr>
+<tr><td>Without Docker: port 1883 in use</td><td>The distribution's Mosquitto is running: <code>sudo systemctl disable --now mosquitto</code>.</td></tr>
+</table>
+<p>Logs: <code>docker compose logs mosquitto mosquitto-ui</code> or <code>journalctl -u mosquitto-ui-broker -u mosquitto-ui</code>.</p>
+
+<!-- ======================================================================================================== -->
+<h2 id="referenz">Reference</h2>
+
+<h3 id="variablen">Environment variables</h3>
+<table>
+<tr><th>Variable</th><th>Meaning</th><th>Default</th></tr>
+<tr><td><code>MOSQUITTO_HOST</code>, <code>MOSQUITTO_PORT</code></td><td>broker</td><td><code>localhost</code>, 1883</td></tr>
+<tr><td><code>MOSQUITTO_USERNAME</code>, <code>MOSQUITTO_PASSWORD</code></td><td>the UI's user at the broker</td><td>(required)</td></tr>
+<tr><td><code>MOSQUITTO_TLS</code></td><td>TLS to the broker</td><td><code>false</code></td></tr>
+<tr><td><code>MOSQUITTO_UI_AUTH</code></td><td><code>local</code>: local login always on (emergency access)</td><td><code>oidc</code></td></tr>
+<tr><td><code>MOSQUITTO_UI_LOCAL_AUTH_INITIAL_PASSWORD</code></td><td>first password of <code>admin</code></td><td>generated</td></tr>
+<tr><td><code>MOSQUITTO_UI_LOCAL_AUTH_SESSION_TIMEOUT</code>, <code>…_SESSION_MAX</code></td><td>session end without a request, after login</td><td><code>PT8H</code>, <code>P7D</code></td></tr>
+<tr><td><code>QUARKUS_OIDC_AUTH_SERVER_URL</code>, <code>…_CLIENT_ID</code>, <code>…_CREDENTIALS_SECRET</code></td><td>before 0.26: become a provider at the first start, not read after that</td><td></td></tr>
+<tr><td><code>MOSQUITTO_UI_ADMIN_ROLE</code></td><td>role the taken-over provider requires</td><td><code>mosquitto-admin</code></td></tr>
+<tr><td><code>MOSQUITTO_UI_SECRET_KEY</code></td><td>key for secrets and backup signatures</td><td>generated in the state directory</td></tr>
+<tr><td><code>MOSQUITTO_UI_STATE_DIR</code></td><td>data of the UI</td><td><code>/var/lib/mosquitto-ui</code></td></tr>
+<tr><td><code>MOSQUITTO_UI_SHARED_DIR</code>, <code>MOSQUITTO_UI_BROKER_SHARED_DIR</code></td><td>shared directory, for the UI and as the broker sees it</td><td><code>/mosquitto/ui</code></td></tr>
+<tr><td><code>MOSQUITTO_UI_CERT_DIR</code></td><td>certificates, as the broker sees them</td><td><code>/mosquitto/data/certs</code></td></tr>
+<tr><td><code>MOSQUITTO_UI_BACKUP_LOCAL_ROOT</code></td><td>local backup targets only below this</td><td><code>/backups</code></td></tr>
+<tr><td><code>MOSQUITTO_UI_BROKER_LOG_KEEP</code></td><td>log lines kept</td><td>10000</td></tr>
+<tr><td><code>MOSQUITTO_UI_NOTIFICATIONS_REJECTED_LOGINS</code>, <code>…_REJECTED_WINDOW</code></td><td>threshold of the mail about rejected logins</td><td>10, <code>PT10M</code></td></tr>
+<tr><td><code>QUARKUS_HTTP_PORT</code>, <code>QUARKUS_HTTP_HOST</code></td><td>port and address of the UI</td><td>8080, all</td></tr>
+<tr><td><code>QUARKUS_HTTP_PROXY_PROXY_ADDRESS_FORWARDING</code>, <code>…_ALLOW_X_FORWARDED</code>, <code>…_TRUSTED_PROXIES</code></td><td>behind a reverse proxy</td><td>off</td></tr>
+</table>
+
+<h3 id="pfade">Paths and ports</h3>
+<table>
+<tr><th>What</th><th>Docker</th><th>without Docker</th></tr>
+<tr><td>Broker configuration</td><td>in the image, your own via mount</td><td><code>/etc/mosquitto-ui/mosquitto.conf</code></td></tr>
+<tr><td>Settings of the UI</td><td><code>.env</code></td><td><code>/etc/mosquitto-ui/mosquitto-ui.env</code></td></tr>
+<tr><td>Users, permissions, retained, certificates</td><td>volume <code>data</code></td><td><code>/var/lib/mosquitto</code></td></tr>
+<tr><td>Data of the UI</td><td>volume <code>state</code></td><td><code>/var/lib/mosquitto-ui/state</code></td></tr>
+<tr><td>Shared directory</td><td>volume <code>shared</code></td><td><code>/var/lib/mosquitto-ui/shared</code></td></tr>
+<tr><td>Local backups</td><td>volume <code>backups</code></td><td><code>/var/lib/mosquitto-ui/backups</code></td></tr>
+<tr><td>Program</td><td>images</td><td><code>/opt/mosquitto-ui/current</code>, <code>/usr/local/sbin/mosquitto</code></td></tr>
+</table>
+<table>
+<tr><th>Port</th><th>For</th></tr>
+<tr><td>1883</td><td>MQTT</td></tr>
+<tr><td>8883</td><td>MQTT over TLS, once a certificate is active</td></tr>
+<tr><td>8080</td><td>UI (HTTP), better only for the reverse proxy</td></tr>
+</table>
+<p>More detail on single topics is in the repository under <code>docs/</code>: logs, login, running without Docker, sessions and traces,
+message rules, token login with Keycloak. The README describes everything in English.</p>
+<p class="top"><a href="#top">Back to top</a></p>
+</main>
+</div>
+</body>
+</html>

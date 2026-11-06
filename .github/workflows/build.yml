@@ -1,0 +1,42 @@
+name: Build
+
+# Every push and pull request: build backend and frontend and run all tests. Pushes that only change documentation are
+# skipped; a newer push to the same branch cancels the run of the older one. Builds no image and pushes nothing; releases
+# come from version tags (release.yml).
+# The tests start Mosquitto and Pebble with Testcontainers, on the Docker of the runner. Quinoa downloads its own Node/npm
+# (quarkus.quinoa.package-manager-install.node-version in application.properties).
+on:
+  push:
+    branches: ['**']
+    paths-ignore:
+      - 'docs/**'
+      - '**.md'
+  pull_request:
+    paths-ignore:
+      - 'docs/**'
+      - '**.md'
+  workflow_dispatch:
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: JDK
+        uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
+        with:
+          distribution: zulu
+          java-version: '21'
+          cache: maven
+
+      - name: Build and test
+        run: ./mvnw -B -ntp verify

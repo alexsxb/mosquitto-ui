@@ -1,0 +1,188 @@
+/* Same colours as src/main/webui/src/index.css and the landing page */
+@font-face {
+    font-family: "Geist Variable";
+    src: url("../fonts/geist.woff2") format("woff2");
+    font-weight: 100 900;
+    font-display: swap;
+}
+
+:root {
+    --mui-background: oklch(1 0 0);
+    --mui-foreground: oklch(0.145 0 0);
+    --mui-card: oklch(1 0 0);
+    --mui-muted: oklch(0.45 0 0);
+    --mui-border: oklch(0.87 0 0);
+    --mui-accent: oklch(0.5 0.1 205);
+    --mui-accent-hover: oklch(0.44 0.1 205);
+    --mui-accent-foreground: oklch(0.99 0 0);
+    --mui-glow: oklch(0.72 0.13 195 / 0.3);
+    --mui-dots: oklch(0.145 0 0 / 0.09);
+    --mui-logo: url("../img/logo-dark-tile.svg");
+    --pf-v5-global--FontFamily--text: "Geist Variable", system-ui, sans-serif;
+    --pf-v5-global--FontFamily--heading: "Geist Variable", system-ui, sans-serif;
+    --pf-v5-global--link--Color: var(--mui-accent);
+    --pf-v5-global--link--Color--hover: var(--mui-accent-hover);
+    --pf-v5-global--primary-color--100: var(--mui-accent);
+    --pf-v5-global--primary-color--200: var(--mui-accent-hover);
+    --pf-v5-global--BackgroundColor--100: var(--mui-card);
+    --pf-v5-global--Color--100: var(--mui-foreground);
+    --pf-v5-global--Color--200: var(--mui-muted);
+    --pf-v5-global--BorderColor--100: var(--mui-border);
+    --pf-v5-global--BorderRadius--sm: 0.5rem;
+}
+
+:root.pf-v5-theme-dark {
+    color-scheme: dark;
+    --mui-background: oklch(0.17 0.018 255);
+    --mui-foreground: oklch(0.97 0.005 255);
+    --mui-card: oklch(0.245 0.022 255);
+    --mui-muted: oklch(0.8 0.02 255);
+    --mui-border: oklch(0.4 0.03 255);
+    --mui-accent: oklch(0.8 0.13 195);
+    --mui-accent-hover: oklch(0.86 0.11 195);
+    --mui-accent-foreground: oklch(0.21 0.03 230);
+    --mui-glow: oklch(0.6 0.13 200 / 0.28);
+    --mui-dots: oklch(0.97 0.005 255 / 0.09);
+    --mui-logo: url("../img/logo-light-tile.svg");
+}
+
+html,
+body,
+.pf-v5-c-login {
+    background:
+        radial-gradient(60rem 40rem at 50% 20%, var(--mui-glow), transparent 70%),
+        radial-gradient(var(--mui-dots) 1px, transparent 1px) 0 0 / 26px 26px,
+        var(--mui-background);
+    background-attachment: fixed;
+    color: var(--mui-foreground);
+}
+
+.pf-v5-c-login__container {
+    align-items: center;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    max-width: none;
+    padding: 2rem 1rem;
+}
+
+/* The name of the realm stays for the page title, here the application takes its place */
+.pf-v5-c-login__header,
+#kc-header {
+    align-items: center;
+    display: flex;
+    gap: 0.625rem;
+    justify-content: center;
+    margin-bottom: 1.5rem;
+}
+
+#kc-header-wrapper {
+    align-items: center;
+    display: flex;
+    font-size: 0;
+    gap: 0.3125rem;
+    letter-spacing: normal;
+    padding: 0;
+    text-transform: none;
+}
+
+#kc-header-wrapper::before {
+    background: var(--mui-logo) center / contain no-repeat;
+    content: "";
+    height: 2rem;
+    width: 2rem;
+}
+
+#kc-header-wrapper::after {
+    color: var(--mui-foreground);
+    content: "mosquitto-ui";
+    font-size: 1.25rem;
+    font-weight: 500;
+}
+
+.pf-v5-c-login__main {
+    background: var(--mui-card);
+    border: 1px solid var(--mui-border);
+    border-radius: 1rem;
+    box-shadow: 0 1rem 3rem var(--mui-glow);
+    margin-inline: auto;
+    max-width: 26rem;
+    overflow: hidden;
+    width: 100%;
+}
+
+.pf-v5-c-login__main-header {
+    border-top: 0;
+}
+
+.pf-v5-c-title,
+.pf-v5-c-login__main-header h1 {
+    color: var(--mui-foreground);
+    font-weight: 600;
+    letter-spacing: -0.02em;
+}
+
+.pf-v5-c-button.pf-m-primary {
+    --pf-v5-c-button--m-primary--BackgroundColor: var(--mui-accent);
+    --pf-v5-c-button--m-primary--Color: var(--mui-accent-foreground);
+    --pf-v5-c-button--m-primary--hover--BackgroundColor: var(--mui-accent-hover);
+    --pf-v5-c-button--m-primary--hover--Color: var(--mui-accent-foreground);
+    --pf-v5-c-button--m-primary--focus--BackgroundColor: var(--mui-accent-hover);
+    --pf-v5-c-button--m-primary--focus--Color: var(--mui-accent-foreground);
+    --pf-v5-c-button--m-primary--active--BackgroundColor: var(--mui-accent-hover);
+    --pf-v5-c-button--m-primary--active--Color: var(--mui-accent-foreground);
+    --pf-v5-c-button--BorderRadius: 0.625rem;
+    font-weight: 500;
+}
+
+/* A whole frame instead of the line below the field, and one mark of the focus instead of three */
+.pf-v5-c-form-control {
+    --pf-v5-c-form-control--BackgroundColor: transparent;
+    --pf-v5-c-form-control--Color: var(--mui-foreground);
+    border-radius: 0.5rem;
+}
+
+.pf-v5-c-form-control::before {
+    border: 1px solid var(--mui-border);
+    border-radius: 0.5rem;
+}
+
+.pf-v5-c-form-control::after {
+    display: none;
+}
+
+.pf-v5-c-form-control input:focus,
+.pf-v5-c-form-control select:focus {
+    outline: none;
+}
+
+.pf-v5-c-form-control select {
+    padding-right: 2rem;
+}
+
+/* The open list is drawn by the browser, on its own background unless told otherwise */
+.pf-v5-c-form-control select option {
+    background-color: var(--mui-card);
+    color: var(--mui-foreground);
+}
+
+.pf-v5-c-form-control:focus-within {
+    outline: 2px solid var(--mui-accent);
+    outline-offset: 1px;
+}
+
+.pf-v5-c-form-control.pf-m-error::before {
+    border-color: var(--pf-v5-global--danger-color--100);
+}
+
+.pf-v5-c-input-group .pf-v5-c-button.pf-m-control {
+    background: transparent;
+    border-radius: 0.5rem;
+    color: var(--mui-muted);
+    margin-left: 0.375rem;
+}
+
+.pf-v5-c-input-group .pf-v5-c-button.pf-m-control::after {
+    border: 1px solid var(--mui-border);
+    border-radius: 0.5rem;
+}

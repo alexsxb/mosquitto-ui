@@ -1,0 +1,11 @@
+# ui/ holds the configuration of a running development broker, with passwords
+*
+!Dockerfile
+!agent.sh
+!mosquitto.conf
+!token-auth/Makefile
+!token-auth/token_auth.c
+!inspect/Makefile
+!inspect/inspect.c
+!inspect/rules.c
+!inspect/rules.h
