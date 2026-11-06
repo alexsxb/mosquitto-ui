@@ -2,14 +2,9 @@
 
 Issues and pull requests are welcome: bug reports, ideas, fixes, translations.
 
-## How changes get in
+## Pull requests
 
-mosquitto-ui is developed in a private repository; GitHub gets its state now and then as one commit. A pull request is
-therefore not merged here on GitHub. It is taken over into the private repository, with you as co-author
-(`Co-authored-by` in the commit, which GitHub counts as your contribution), and arrives here with the next published state.
-Then the pull request is closed with a note where it went.
-
-So it helps if a pull request
+The build runs the tests on every pull request. It helps if a pull request
 
 - does one thing, and says why in its description;
 - is based on the current `main`;
