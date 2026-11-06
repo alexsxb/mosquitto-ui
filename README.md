@@ -560,6 +560,10 @@ discovery. Each provider gets a button on the start page; its callback address i
 The identity provider needs `https://<host>/*` as redirect URI and post logout redirect URI, and has to put the roles
 into a JWT access token. Behind a reverse proxy, see the commented settings in `application.properties`.
 
+## Contributing
+
+Issues and pull requests are welcome, see [CONTRIBUTING.md](CONTRIBUTING.md).
+
 ## License
 
 Copyright (C) 2026 Alexander Schlenker
