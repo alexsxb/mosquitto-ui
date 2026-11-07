@@ -8,6 +8,7 @@ import { $api } from "@/api/client"
 import { ConfirmDialog } from "@/components/confirm-dialog"
 import { LineChart } from "@/components/line-chart"
 import { RefreshButton } from "@/components/refresh-button"
+import { SearchInput } from "@/components/search-input"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -159,7 +160,7 @@ export function TopicsPage() {
         </Alert>
       )}
       <div className="flex flex-wrap items-center gap-2">
-        <Input aria-label={t("topics.search")} placeholder={t("topics.search")} className="max-w-sm" value={search} onChange={(e) => setSearch(e.target.value)} />
+        <SearchInput className="max-w-sm" placeholder={t("topics.search")} value={search} onValueChange={setSearch} />
         <label className="flex items-center gap-2 text-sm">
           <Switch checked={retainedOnly} onCheckedChange={(checked) => setParams(checked ? { retained: "true" } : {}, { replace: true })} />
           {t("topics.retainedOnly")}

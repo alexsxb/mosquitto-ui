@@ -4,9 +4,9 @@ import { useTranslation } from "react-i18next"
 
 import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { SearchInput } from "@/components/search-input"
 
 /** From this many names on, the list can be searched. */
 const SEARCH_FROM = 8
@@ -41,7 +41,7 @@ export function MultiSelect({
           <ChevronDownIcon className="size-4 opacity-50" />
         </PopoverTrigger>
         <PopoverContent>
-          {names.length >= SEARCH_FROM && <Input aria-label={t("common.search")} placeholder={t("common.search")} className="mb-2" value={search} onChange={(e) => setSearch(e.target.value)} />}
+          {names.length >= SEARCH_FROM && <SearchInput placeholder={t("common.search")} className="mb-2" value={search} onValueChange={setSearch} />}
           <div className="max-h-56 space-y-1 overflow-y-auto">
             {shown.length === 0 && <p className="p-2 text-sm text-muted-foreground">{t("common.noResults")}</p>}
             {shown.map((name) => (

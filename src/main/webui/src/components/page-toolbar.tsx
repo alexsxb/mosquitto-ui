@@ -1,7 +1,7 @@
 import type { ComponentProps, ReactNode } from "react"
 
 import { RefreshButton } from "@/components/refresh-button"
-import { Input } from "@/components/ui/input"
+import { SearchInput } from "@/components/search-input"
 
 /** Search field and refresh on the left, actions on the right. */
 export function PageToolbar({
@@ -24,13 +24,7 @@ export function PageToolbar({
   return (
     <div className="mb-4 flex flex-wrap items-center gap-2">
       {onSearch && (
-        <Input
-          className="max-w-xs"
-          type="search"
-          value={search}
-          placeholder={placeholder}
-          onChange={(event) => onSearch(event.target.value)}
-        />
+        <SearchInput className="max-w-xs" value={search ?? ""} placeholder={placeholder} onValueChange={onSearch} />
       )}
       {count && <span className="text-sm text-muted-foreground">{count}</span>}
       {refresh && <RefreshButton queries={refresh} />}

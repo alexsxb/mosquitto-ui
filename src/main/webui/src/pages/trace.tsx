@@ -9,6 +9,7 @@ import { $api, fetchClient, type Schemas } from "@/api/client"
 import { InspectUnavailable } from "@/components/inspect-unavailable"
 import { SortableHead } from "@/components/sortable-head"
 import { TablePagination } from "@/components/table-pagination"
+import { SearchInput } from "@/components/search-input"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
@@ -343,13 +344,12 @@ function TraceCard({ trace }: { trace: Trace }) {
       </CardHeader>
       <CardContent className="space-y-3">
         <div className="flex flex-wrap items-center gap-2">
-          <Input
+          <SearchInput
             className="max-w-xs"
-            type="search"
             value={search}
             placeholder={t("trace.search")}
-            onChange={(e) => {
-              setSearch(e.target.value)
+            onValueChange={(value) => {
+              setSearch(value)
               table.setPage(0)
             }}
           />

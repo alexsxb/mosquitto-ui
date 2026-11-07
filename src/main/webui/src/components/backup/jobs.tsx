@@ -8,6 +8,7 @@ import { toast } from "sonner"
 import { $api, apiFetch, toApiError, type Schemas } from "@/api/client"
 import { ConfirmDialog } from "@/components/confirm-dialog"
 import { TablePagination } from "@/components/table-pagination"
+import { SearchInput } from "@/components/search-input"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -614,7 +615,7 @@ function GpgRecipients({ recipients, onChange, locale }: { recipients: Recipient
         </ul>
       )}
       <div className="flex gap-2">
-        <Input placeholder={t("backups.gpg.searchPlaceholder")} value={query} onChange={(e) => setQuery(e.target.value)} />
+        <SearchInput placeholder={t("backups.gpg.searchPlaceholder")} value={query} onValueChange={setQuery} />
         <Button type="button" variant="outline" disabled={busy || !query.trim()} onClick={() => void search()}>
           {busy && <Spinner />}
           {t("backups.gpg.search")}

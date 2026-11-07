@@ -16,6 +16,7 @@ export default {
     noResults: "Aucun résultat",
     removeItem: "Retirer {{name}}",
     search: "Rechercher",
+    clearSearch: "Effacer la recherche",
     select: "Sélectionner",
     selected: "{{count}} sélectionnés",
     name: "Nom",

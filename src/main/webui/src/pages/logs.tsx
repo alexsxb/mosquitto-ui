@@ -10,9 +10,9 @@ import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
+import { SearchInput } from "@/components/search-input"
 
 type LogLine = Schemas["LogLine"]
 
@@ -290,7 +290,7 @@ export function LogsPage() {
   return (
     <>
       <div className="mb-3 flex flex-wrap items-center gap-2">
-        <Input className="max-w-xs" type="search" value={search} placeholder={t("logs.search")} onChange={(e) => setSearch(e.target.value)} />
+        <SearchInput className="max-w-xs" value={search} placeholder={t("logs.search")} onValueChange={setSearch} />
         <Popover>
           <PopoverTrigger asChild>
             <Button variant="outline" className="w-44 justify-between font-normal" aria-label={t("logs.levelFilter")}>
