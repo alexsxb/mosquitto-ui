@@ -29,6 +29,12 @@ public class LogWatch {
 
     /** As mosquitto 2.1 writes it (src/loop.c); a wrong password is "not authorised" as well. Without an id it says so as well. */
     static final Pattern REJECTED = Pattern.compile("^Client (\\S+) (?:\\[([^\\]]*)\\] )?disconnected: (not authori[sz]ed|bad username or password|banned)");
+    /**
+     * A TLS handshake that failed, as mosquitto 2.1 writes it at the level error. Mostly scanners or clients with an old TLS
+     * version or no common cipher; the broker itself is fine. Not worth a mail: a bridge or a known client that can no longer
+     * connect makes its own mail (OutageWatch).
+     */
+    static final Pattern TLS_HANDSHAKE = Pattern.compile("^OpenSSL Error");
     /** Lines kept for one mail, more are only counted */
     static final int MAX_LINES = 1000;
     /** Lines in a mail */
@@ -64,7 +70,7 @@ public class LogWatch {
     /** On the event loop of the connection to the broker: only collects */
     void onLine(@Observes BrokerLogLine line) {
         synchronized (this) {
-            if ("error".equals(line.level())) {
+            if ("error".equals(line.level()) && !TLS_HANDSHAKE.matcher(line.text()).find()) {
                 if (errors.size() < MAX_LINES) {
                     errors.add(new Seen(line.time(), line.text()));
                 } else {

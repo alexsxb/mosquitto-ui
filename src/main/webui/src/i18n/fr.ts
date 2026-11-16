@@ -1372,7 +1372,7 @@ export default {
       CERTIFICATE: "Un renouvellement a échoué.",
       BACKUP: "Une tâche de sauvegarde a échoué.",
       RULE: "Une règle de messages avec e-mail a rejeté des messages, au plus un e-mail par règle et par heure.",
-      LOG_ERROR: "Le broker a écrit une ligne de niveau erreur. Au plus un mail toutes les {{every}} minutes, avec toutes les lignes depuis le dernier.",
+      LOG_ERROR: "Le broker a écrit une ligne de niveau erreur, sauf les handshakes TLS échoués. Au plus un mail toutes les {{every}} minutes, avec toutes les lignes depuis le dernier.",
       LOGIN_REJECTED: "Au moins {{count}} connexions refusées en {{minutes}} minutes (mot de passe erroné, client bloqué ou inconnu), avec client ids et adresses. Au plus un mail toutes les {{every}} minutes.",
     },
     ignoredClients: "Ne pas signaler ces clients",

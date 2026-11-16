@@ -1372,7 +1372,7 @@ export default {
       CERTIFICATE: "Eine Verlängerung ist gescheitert.",
       BACKUP: "Ein Backup-Job ist gescheitert.",
       RULE: "Eine Nachrichtenregel mit Mail hat Nachrichten verworfen, höchstens eine Mail pro Regel und Stunde.",
-      LOG_ERROR: "Der Broker hat eine Zeile der Stufe Fehler geschrieben. Höchstens eine Mail in {{every}} Minuten, mit allen Zeilen seit der letzten.",
+      LOG_ERROR: "Der Broker hat eine Zeile der Stufe Fehler geschrieben, außer gescheiterten TLS-Handshakes. Höchstens eine Mail in {{every}} Minuten, mit allen Zeilen seit der letzten.",
       LOGIN_REJECTED: "Mindestens {{count}} abgelehnte Anmeldungen in {{minutes}} Minuten (falsches Passwort, gesperrter oder unbekannter Client), mit Client-IDs und Adressen. Höchstens eine Mail in {{every}} Minuten.",
     },
     ignoredClients: "Diese Clients nicht melden",

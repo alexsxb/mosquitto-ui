@@ -1372,7 +1372,7 @@ export default {
       CERTIFICATE: "A renewal failed.",
       BACKUP: "A backup job failed.",
       RULE: "A message rule with mail refused messages, at most one mail an hour for each rule.",
-      LOG_ERROR: "The broker logged a line of the level error. At most one mail in {{every}} minutes, with all lines since the last.",
+      LOG_ERROR: "The broker logged a line of the level error, except failed TLS handshakes. At most one mail in {{every}} minutes, with all lines since the last.",
       LOGIN_REJECTED: "At least {{count}} rejected logins in {{minutes}} minutes (wrong password, locked or unknown client), with client ids and addresses. At most one mail in {{every}} minutes.",
     },
     ignoredClients: "Do not report these clients",

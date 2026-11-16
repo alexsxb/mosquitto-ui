@@ -53,6 +53,19 @@ class LogWatchTest {
     }
 
     @Test
+    void failedTlsHandshakesMakeNoMail() {
+        line(NOW, "error", "OpenSSL Error while trying to get the error[0]: error:0A000102:SSL routines::unsupported protocol");
+        line(NOW, "error", "OpenSSL Error while trying to get the error[0]: error:0A0000C1:SSL routines::no shared cipher");
+        line(NOW, "error", "OpenSSL Error[0]: error:0A000126:SSL routines::unexpected eof while reading");
+        watch.check(NOW);
+        assertEquals(0, mails.size());
+
+        line(NOW.plusSeconds(1), "error", "Error: Unable to open log file");
+        watch.check(NOW.plusSeconds(2));
+        assertEquals("mosquitto-ui: an error in the log of the broker", mails.getFirst().subject());
+    }
+
+    @Test
     void errorsMakeOneMailAnHour() {
         line(NOW, "error", "Error: Unable to open log file");
         line(NOW, "warning", "Warning: something else");
