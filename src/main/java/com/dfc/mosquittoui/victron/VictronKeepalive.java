@@ -85,8 +85,8 @@ public class VictronKeepalive {
             publish(client, portalId, full);
             return;
         }
-        String[] address = bridge.address().split("\\s+")[0].split(":");
-        int port = Integer.parseInt(address[1]);
+        VictronService.HostPort address = VictronService.address(bridge.address(), VictronService.TLS_PORT);
+        int port = address.port();
         String pinned = tls(bridge, port) ? store.pinned(bridge) : null;
         if (tls(bridge, port) && pinned == null) {
             // without the certificate from pairing there is nothing to trust, and the token would go to whoever answers
@@ -96,7 +96,7 @@ public class VictronKeepalive {
         MqttClient created = MqttClient.create(vertx, VictronService.options(port, pinned, bridge.username(), bridge.password(),
                 "mosquitto-ui-keepalive-" + UUID.randomUUID()));
         clients.put(bridge.name(), created);
-        created.connect(port, address[0])
+        created.connect(port, address.host())
                 .onSuccess(ack -> {
                     store.certificateConfirmed(bridge.name());
                     publish(created, portalId, true);
@@ -104,7 +104,7 @@ public class VictronKeepalive {
                 .onFailure(error -> {
                     LOG.warnf("No keepalive connection for bridge %s: %s", bridge.name(), error.getMessage());
                     if (pinned != null) {
-                        probe(bridge.name(), address[0], port, pinned);
+                        probe(bridge.name(), address.host(), port, pinned);
                     }
                 });
     }

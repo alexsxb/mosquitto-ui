@@ -204,7 +204,9 @@ public final class Dtos {
     }
 
     /** A bridge to a Victron GX device. secured: through pairing, with TLS. twoWay: writes reach the device, otherwise it can only be read. */
-    public record VictronPairing(@NotBlank @Pattern(regexp = "[^/\\s]+") String name, @NotBlank @Pattern(regexp = "[^\\s/:]+") String host, boolean secured, boolean twoWay,
+    /** host: a name, an IPv4 address or an IPv6 address, with or without brackets; no port, that is port. */
+    public record VictronPairing(@NotBlank @Pattern(regexp = "[^/\\s]+") String name,
+            @NotBlank @Pattern(regexp = "[^\\s/:\\[\\]]+|\\[?[0-9a-fA-F.]*:[0-9a-fA-F.]*:[0-9a-fA-F:.]*\\]?") String host, boolean secured, boolean twoWay,
             @Pattern(regexp = "\\S*") String localPrefix, @Pattern(regexp = "[0-9a-zA-Z]*") String portalId, @Min(1) @Max(65535) Integer port) {
     }
 

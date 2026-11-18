@@ -57,7 +57,7 @@ import org.jboss.logging.Logger;
 public class VictronService {
 
     private static final Logger LOG = Logger.getLogger(VictronService.class);
-    private static final int TLS_PORT = 8883;
+    static final int TLS_PORT = 8883;
     private static final int PLAIN_PORT = 1883;
     private static final int TIMEOUT_MS = 10000;
     private static final int PEM_LINE = 64;
@@ -117,13 +117,34 @@ public class VictronService {
         return URLEncoder.encode(key, StandardCharsets.UTF_8) + "=" + URLEncoder.encode(value, StandardCharsets.UTF_8);
     }
 
+    /** The address without the brackets of an IPv6 address: so it goes to sockets and into the address of a bridge (mosquitto.conf). */
+    static String bare(String host) {
+        return host.startsWith("[") && host.endsWith("]") ? host.substring(1, host.length() - 1) : host;
+    }
+
+    /** Host and port of a bridge address. */
+    record HostPort(String host, int port) {
+    }
+
+    /** The first address of a bridge, host:port, an IPv6 address without brackets: the port is after the last colon, as in Mosquitto. */
+    static HostPort address(String addresses, int defaultPort) {
+        String address = addresses.strip().split("\\s+")[0];
+        int colon = address.lastIndexOf(':');
+        return colon > 0 ? new HostPort(address.substring(0, colon), Integer.parseInt(address.substring(colon + 1))) : new HostPort(address, defaultPort);
+    }
+
+    /** In a URL an IPv6 address needs brackets. */
+    static String inUrl(String host) {
+        return host.contains(":") ? "[" + host + "]" : host;
+    }
+
     /** The device goes by the first token of a name, so every pairing needs a new device_id; it is alphanumeric. */
     private Token requestToken(String host) {
         byte[] id = new byte[6];
         new SecureRandom().nextBytes(id);
         String body = form("role", ROLE) + "&" + form("device_id", "mui" + HexFormat.of().formatHex(id));
         try {
-            HttpsURLConnection connection = (HttpsURLConnection) URI.create("https://" + httpsHost.orElse(host) + ":" + httpsPort + "/auth/generate-token/").toURL().openConnection();
+            HttpsURLConnection connection = (HttpsURLConnection) URI.create("https://" + inUrl(httpsHost.orElse(host)) + ":" + httpsPort + "/auth/generate-token/").toURL().openConnection();
             connection.setSSLSocketFactory(trustingContext().getSocketFactory());
             connection.setHostnameVerifier((name, session) -> true);
             connection.setConnectTimeout(TIMEOUT_MS);
@@ -225,29 +246,31 @@ public class VictronService {
      * try_private and the state topic stay away from the device, a token may publish only to its own topics. The state stays
      * local, where the page reads it.
      */
-    private BridgeForm bridge(VictronPairing pairing, int port, String username, String password) {
+    /** An IPv6 address without brackets: Mosquitto takes the port after its last colon. */
+    private BridgeForm bridge(VictronPairing pairing, String host, int port, String username, String password) {
         List<String> extra = new ArrayList<>(List.of("notifications_local_only true"));
         if (pairing.secured()) {
             extra.add("bridge_cafile " + store.brokerCertificate(pairing.name()));
             extra.add("bridge_insecure true");
         }
-        return new BridgeForm(pairing.name(), pairing.host() + ":" + port, "mosquitto-ui-" + pairing.name(), username, password, false, true, null, KEEPALIVE_SECONDS,
+        return new BridgeForm(pairing.name(), host + ":" + port, "mosquitto-ui-" + pairing.name(), username, password, false, true, null, KEEPALIVE_SECONDS,
                 null, null, topics(pairing), extra, false);
     }
 
     public void pair(VictronPairing pairing) {
         int port = pairing.port() != null ? pairing.port() : pairing.secured() ? TLS_PORT : PLAIN_PORT;
+        String host = bare(pairing.host());
         // before the device hands out a token for nothing
-        bridges.check(bridge(pairing, port, null, null));
-        Token token = pairing.secured() ? requestToken(pairing.host()) : new Token(null, null);
-        LOG.infof("Paired with %s as %s", pairing.host(), token.name());
-        String pinned = pairing.secured() ? certificates(pairing.host(), port) : null;
+        bridges.check(bridge(pairing, host, port, null, null));
+        Token token = pairing.secured() ? requestToken(host) : new Token(null, null);
+        LOG.infof("Paired with %s as %s", host, token.name());
+        String pinned = pairing.secured() ? certificates(host, port) : null;
         if (pinned != null) {
             store.saveCertificate(pairing.name(), pinned);
         }
         String portalId = pairing.portalId() != null && !pairing.portalId().isBlank() ? pairing.portalId()
-                : discoverPortalId(pairing.host(), port, pinned, token.name(), token.password());
-        bridges.create(bridge(pairing, port, token.name(), token.password()));
+                : discoverPortalId(host, port, pinned, token.name(), token.password());
+        bridges.create(bridge(pairing, host, port, token.name(), token.password()));
         store.put(pairing.name(), portalId);
         keepalive.tick();
     }
@@ -263,9 +286,9 @@ public class VictronService {
         if (store.portals().get(name) == null || store.pinned(bridge) == null) {
             throw new BridgeException("validation", "Bridge " + name + " is no paired bridge to a GX device");
         }
-        String[] address = bridge.address().split("\\s+")[0].split(":");
-        String host = address[0];
-        int port = address.length > 1 ? Integer.parseInt(address[1]) : TLS_PORT;
+        HostPort address = address(bridge.address(), TLS_PORT);
+        String host = address.host();
+        int port = address.port();
         Token token = requestToken(host);
         LOG.infof("Paired again with %s as %s", host, token.name());
         store.replacePinned(bridge, certificates(host, port));

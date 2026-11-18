@@ -270,7 +270,7 @@ function VictronDialog({ onClose }: { onClose: () => void }) {
             <div className="grid gap-4 sm:grid-cols-2">
               <Field>
                 <FieldLabel htmlFor="victron-host">{t("victron.host")}</FieldLabel>
-                <Input id="victron-host" required autoComplete="off" pattern="[^\s\/:]+" placeholder="venus.local" className="font-mono text-xs" value={host} onChange={(e) => setHost(e.target.value)} />
+                <Input id="victron-host" required autoComplete="off" pattern="[^\s\/:\[\]]+|\[?[0-9a-fA-F.]*:[0-9a-fA-F.]*:[0-9a-fA-F:.]*\]?" placeholder="venus.local" className="font-mono text-xs" value={host} onChange={(e) => setHost(e.target.value)} />
               </Field>
               <Field>
                 <FieldLabel htmlFor="victron-name">{t("bridges.name")}</FieldLabel>
