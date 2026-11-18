@@ -2,6 +2,7 @@ package com.dfc.mosquittoui.api;
 
 import static io.restassured.RestAssured.given;
 import static org.awaitility.Awaitility.await;
+import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.equalTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -313,6 +314,33 @@ class AccessRulesTest {
 
         given().post("/api/clients/admin/disconnect").then().statusCode(409);
         given().post("/api/clients/nobody-here/disconnect").then().statusCode(404);
+    }
+
+    /** The plugin disconnects on every modifyClient and modifyGroup; saving without a change must not send one. */
+    @Test
+    void savingWithoutAChangeKeepsClientsConnected() throws Exception {
+        role("kept-role", true);
+        json().body(Map.of("groupname", "kept-group", "textname", "Group", "roles", List.of("kept-role"), "clients", List.of())).post("/api/groups").then().statusCode(204);
+        json().body(Map.of("username", "kept", "password", PASSWORD, "textname", "Name", "roles", List.of("kept-role"), "groups", List.of("kept-group"))).post("/api/clients")
+                .then().statusCode(204);
+        json().body(Map.of("username", "joining", "password", PASSWORD, "roles", List.of(), "groups", List.of())).post("/api/clients").then().statusCode(204);
+        MqttClient client = connect("kept", "kept-id", new LinkedBlockingQueue<>());
+        CompletableFuture<Void> closed = new CompletableFuture<>();
+        client.closeHandler(v -> closed.complete(null));
+
+        json().body(Map.of("textname", "Name", "textdescription", "", "roles", List.of("kept-role"), "groups", List.of("kept-group"))).put("/api/clients/kept").then().statusCode(204);
+        // a new member disconnects only itself, the group itself is unchanged
+        json().body(Map.of("textname", "Group", "textdescription", "", "roles", List.of("kept-role"), "clients", List.of("kept", "joining"))).put("/api/groups/kept-group")
+                .then().statusCode(204);
+        given().get("/api/groups").then().body("find { it.groupname == 'kept-group' }.clients", containsInAnyOrder("kept", "joining"));
+        Thread.sleep(2000);
+        assertFalse(closed.isDone(), "Saving without a change disconnected the client");
+
+        // a real change still does, as the plugin wants it
+        json().body(Map.of("textname", "Group", "textdescription", "changed", "roles", List.of("kept-role"), "clients", List.of("kept", "joining"))).put("/api/groups/kept-group")
+                .then().statusCode(204);
+        closed.get(10, TimeUnit.SECONDS);
+        given().get("/api/groups").then().body("find { it.groupname == 'kept-group' }.textdescription", equalTo("changed"));
     }
 
     @Test

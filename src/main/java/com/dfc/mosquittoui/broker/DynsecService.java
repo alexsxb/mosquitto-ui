@@ -76,11 +76,27 @@ public class DynsecService {
         changed();
     }
 
+    /**
+     * The plugin disconnects the client on every modifyClient, whatever it changes. Saving the dialog unchanged sends
+     * nothing, and only what changed goes to the broker.
+     */
     public void updateClient(String username, ClientUpdate client) {
         requireNotOwnClient(username);
-        ObjectNode command = withTexts(dynsec.command("modifyClient").put("username", username), client.textname(), client.textdescription());
-        command.set("roles", refs("rolename", client.roles()));
-        command.set("groups", refs("groupname", client.groups()));
+        ClientView current = getClient(username);
+        String textname = changedText(client.textname(), current.textname());
+        String textdescription = changedText(client.textdescription(), current.textdescription());
+        boolean roles = !sameNames(client.roles(), current.roles());
+        boolean groups = !sameNames(client.groups(), current.groups());
+        if (textname == null && textdescription == null && !roles && !groups) {
+            return;
+        }
+        ObjectNode command = withTexts(dynsec.command("modifyClient").put("username", username), textname, textdescription);
+        if (roles) {
+            command.set("roles", refs("rolename", client.roles()));
+        }
+        if (groups) {
+            command.set("groups", refs("groupname", client.groups()));
+        }
         dynsec.call(command);
     }
 
@@ -128,9 +144,19 @@ public class DynsecService {
 
     public void updateGroup(String groupname, GroupUpdate group) {
         requireNotLocked(lockedGroups(), groupname);
-        ObjectNode command = withTexts(dynsec.command("modifyGroup").put("groupname", groupname), group.textname(), group.textdescription());
-        command.set("roles", refs("rolename", group.roles()));
-        dynsec.call(command);
+        // the plugin disconnects every member on each modifyGroup, so only when name, description or roles changed;
+        // members coming and going disconnect just themselves
+        JsonNode current = dynsec.call(dynsec.command("getGroup").put("groupname", groupname)).path("group");
+        String textname = changedText(group.textname(), text(current, "textname"));
+        String textdescription = changedText(group.textdescription(), text(current, "textdescription"));
+        boolean roles = !sameNames(group.roles(), names(current.path("roles"), "rolename"));
+        if (textname != null || textdescription != null || roles) {
+            ObjectNode command = withTexts(dynsec.command("modifyGroup").put("groupname", groupname), textname, textdescription);
+            if (roles) {
+                command.set("roles", refs("rolename", group.roles()));
+            }
+            dynsec.call(command);
+        }
         if (group.clients() != null) {
             setGroupClients(groupname, group.clients());
         }
@@ -288,6 +314,15 @@ public class DynsecService {
                 acl.path("priority").asInt(), acl.path("allow").asBoolean())));
         return new RoleView(rolename, text(role, "textname"), text(role, "textdescription"),
                 role.path("allowwildcardsubs").asBoolean(true), acls, locked.contains(rolename));
+    }
+
+    /** The new text if it differs from the current one, else null (withTexts then leaves it out). */
+    private static String changedText(String wanted, String current) {
+        return wanted == null || wanted.equals(current) ? null : wanted;
+    }
+
+    private static boolean sameNames(List<String> a, List<String> b) {
+        return new HashSet<>(a).equals(new HashSet<>(b));
     }
 
     private static String text(JsonNode node, String field) {

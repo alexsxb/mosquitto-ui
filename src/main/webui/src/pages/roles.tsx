@@ -7,6 +7,7 @@ import { toast } from "sonner"
 import { $api, type Schemas } from "@/api/client"
 import { ChipsInput } from "@/components/chips-input"
 import { ConfirmDialog } from "@/components/confirm-dialog"
+import { DisconnectHint } from "@/components/disconnect-hint"
 import { PageToolbar } from "@/components/page-toolbar"
 import { SortableHead } from "@/components/sortable-head"
 import { TablePagination } from "@/components/table-pagination"
@@ -22,6 +23,7 @@ import { Spinner } from "@/components/ui/spinner"
 import { Switch } from "@/components/ui/switch"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Textarea } from "@/components/ui/textarea"
+import { connectedAmong, holdersOf } from "@/lib/disconnects"
 import { useErrorToast } from "@/lib/errors"
 import { useTable } from "@/lib/use-table"
 
@@ -183,12 +185,26 @@ export function RolesPage() {
   )
 }
 
+/** Who the broker disconnects when the rules of this role change: its connected holders, and with the anonymous group everyone without a login. */
+function useRoleHolders(rolename: string | undefined) {
+  const clients = $api.useQuery("get", "/api/clients")
+  const groups = $api.useQuery("get", "/api/groups")
+  if (!rolename) {
+    return { connected: 0, anonymous: false }
+  }
+  return {
+    connected: connectedAmong(clients.data, holdersOf(rolename, clients.data, groups.data)),
+    anonymous: (groups.data ?? []).some((group) => group.anonymous && group.roles.includes(rolename)),
+  }
+}
+
 function RoleDialog({ role, onClose }: { role: Role | null; onClose: () => void }) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const errorToast = useErrorToast()
   const create = $api.useMutation("post", "/api/roles")
   const update = $api.useMutation("put", "/api/roles/{rolename}")
+  const affected = useRoleHolders(role?.rolename)
 
   const [rolename, setRolename] = useState(role?.rolename ?? "")
   const [textname, setTextname] = useState(role?.textname ?? "")
@@ -270,6 +286,8 @@ function RoleDialog({ role, onClose }: { role: Role | null; onClose: () => void 
               </Field>
             )}
           </FieldGroup>
+          {/* name and description alone disconnect nobody, switching wildcards does */}
+          {role && allowwildcardsubs !== role.allowwildcardsubs && <DisconnectHint count={affected.connected} anonymous={affected.anonymous} />}
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>
               {t("common.cancel")}
@@ -290,6 +308,7 @@ function AclDialog({ role, onClose }: { role: Role; onClose: () => void }) {
   const queryClient = useQueryClient()
   const errorToast = useErrorToast()
   const add = $api.useMutation("post", "/api/roles/{rolename}/acls")
+  const affected = useRoleHolders(role.rolename)
   const remove = $api.useMutation("delete", "/api/roles/{rolename}/acls")
 
   const [acltype, setAcltype] = useState<string>(aclTypes[0])
@@ -331,6 +350,7 @@ function AclDialog({ role, onClose }: { role: Role; onClose: () => void }) {
           <DialogTitle>{t("roles.aclsTitle", { name: role.rolename })}</DialogTitle>
           <DialogDescription>{role.locked ? t("common.lockedHint") : t("roles.aclsDesc")}</DialogDescription>
         </DialogHeader>
+        {!role.locked && <DisconnectHint rules count={affected.connected} anonymous={affected.anonymous} />}
         {sorted.length === 0 ? (
           <p className="py-4 text-center text-sm text-muted-foreground">{t("roles.aclsEmpty")}</p>
         ) : (

@@ -7,6 +7,7 @@ import { toast } from "sonner"
 
 import { $api, type Schemas } from "@/api/client"
 import { ConfirmDialog } from "@/components/confirm-dialog"
+import { DisconnectHint } from "@/components/disconnect-hint"
 import { BadgeList } from "@/components/badge-list"
 import { MultiSelect } from "@/components/multi-select"
 import { PageToolbar } from "@/components/page-toolbar"
@@ -23,6 +24,7 @@ import { Spinner } from "@/components/ui/spinner"
 import { Switch } from "@/components/ui/switch"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Textarea } from "@/components/ui/textarea"
+import { sameNames } from "@/lib/disconnects"
 import { useErrorToast } from "@/lib/errors"
 import { formatDateTime } from "@/lib/format"
 import { useTable } from "@/lib/use-table"
@@ -337,6 +339,9 @@ function ClientDialog({ client, onClose }: { client: Client | null; onClose: () 
   const [textdescription, setTextdescription] = useState(client?.textdescription ?? "")
   const [roles, setRoles] = useState(client?.roles ?? [])
   const [groups, setGroups] = useState(client?.groups ?? [])
+  // the broker disconnects a client on every change of it
+  const clientChanged =
+    client !== null && (textname !== client.textname || textdescription !== client.textdescription || !sameNames(roles, client.roles) || !sameNames(groups, client.groups))
 
   async function submit(event: FormEvent) {
     event.preventDefault()
@@ -394,6 +399,7 @@ function ClientDialog({ client, onClose }: { client: Client | null; onClose: () 
               <MultiSelect idPrefix="client-group" label={t("nav.groups")} names={allGroups.data?.map((g) => g.groupname) ?? []} selected={groups} onChange={setGroups} />
             </Field>
           </FieldGroup>
+          <DisconnectHint count={clientChanged && client.connections.length > 0 ? 1 : 0} />
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>
               {t("common.cancel")}

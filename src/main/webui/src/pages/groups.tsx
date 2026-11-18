@@ -6,6 +6,7 @@ import { toast } from "sonner"
 
 import { $api, type Schemas } from "@/api/client"
 import { ConfirmDialog } from "@/components/confirm-dialog"
+import { DisconnectHint } from "@/components/disconnect-hint"
 import { BadgeList } from "@/components/badge-list"
 import { MultiSelect } from "@/components/multi-select"
 import { PageToolbar } from "@/components/page-toolbar"
@@ -20,6 +21,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Spinner } from "@/components/ui/spinner"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Textarea } from "@/components/ui/textarea"
+import { connectedAmong, sameNames } from "@/lib/disconnects"
 import { useErrorToast } from "@/lib/errors"
 import { useTable } from "@/lib/use-table"
 
@@ -176,6 +178,12 @@ function GroupDialog({ group, onClose }: { group: Group | null; onClose: () => v
   // the clients of this application cannot change their groups
   const clientNames = (allClients.data ?? []).filter((client) => !client.locked).map((client) => client.username)
 
+  // the broker disconnects all members on a change of the group itself, and those who come or go
+  const groupChanged = group !== null && (textname !== group.textname || textdescription !== group.textdescription || !sameNames(roles, group.roles))
+  const disconnected = group
+    ? [...(groupChanged ? group.clients : []), ...clients.filter((name) => !group.clients.includes(name)), ...group.clients.filter((name) => !clients.includes(name))]
+    : []
+
   async function submit(event: FormEvent) {
     event.preventDefault()
     try {
@@ -226,6 +234,7 @@ function GroupDialog({ group, onClose }: { group: Group | null; onClose: () => v
               <FieldDescription>{t("groups.membersHint")}</FieldDescription>
             </Field>
           </FieldGroup>
+          <DisconnectHint count={connectedAmong(allClients.data, disconnected)} anonymous={groupChanged && group?.anonymous} />
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>
               {t("common.cancel")}
