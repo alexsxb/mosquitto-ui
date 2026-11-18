@@ -5,12 +5,14 @@ import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 
 import { $api, type Schemas } from "@/api/client"
+import { ChipsInput } from "@/components/chips-input"
 import { ConfirmDialog } from "@/components/confirm-dialog"
 import { PageToolbar } from "@/components/page-toolbar"
 import { SortableHead } from "@/components/sortable-head"
 import { TablePagination } from "@/components/table-pagination"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Field, FieldContent, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
@@ -34,6 +36,18 @@ const columns = {
   used: (role: UsedRole) => role.used,
 }
 const aclTypes = ["publishClientSend", "publishClientReceive", "subscribeLiteral", "subscribePattern", "unsubscribeLiteral", "unsubscribePattern"] as const
+/** What a new role without wildcards can grant on its topics right away. */
+const grantTypes = ["subscribeLiteral", "publishClientReceive", "publishClientSend"] as const
+/** In the rules table: one choice that adds everything to publish and subscribe on a topic. */
+const pubSub = "pubSub"
+
+/** The rule types behind a choice; subscribing to a topic with + or # needs a pattern rule. */
+function aclTypesOf(choice: string, topic: string) {
+  if (choice !== pubSub) {
+    return [choice]
+  }
+  return ["publishClientSend", "publishClientReceive", /[+#]/.test(topic) ? "subscribePattern" : "subscribeLiteral"]
+}
 
 export function RolesPage() {
   const { t } = useTranslation()
@@ -180,6 +194,12 @@ function RoleDialog({ role, onClose }: { role: Role | null; onClose: () => void 
   const [textname, setTextname] = useState(role?.textname ?? "")
   const [textdescription, setTextdescription] = useState(role?.textdescription ?? "")
   const [allowwildcardsubs, setAllowwildcardsubs] = useState(role?.allowwildcardsubs ?? true)
+  const [topics, setTopics] = useState<string[]>([])
+  const [grants, setGrants] = useState<string[]>(["subscribeLiteral"])
+
+  // only when creating a role without wildcards; the rules table stays the place for everything else
+  const granting = !role && !allowwildcardsubs
+  const acls = granting ? topics.flatMap((topic) => grants.map((acltype) => ({ acltype, topic, priority: 0, allow: true }))) : []
 
   async function submit(event: FormEvent) {
     event.preventDefault()
@@ -187,7 +207,7 @@ function RoleDialog({ role, onClose }: { role: Role | null; onClose: () => void 
       if (role) {
         await update.mutateAsync({ params: { path: { rolename: role.rolename } }, body: { textname, textdescription, allowwildcardsubs } })
       } else {
-        await create.mutateAsync({ body: { rolename, textname, textdescription, allowwildcardsubs } })
+        await create.mutateAsync({ body: { rolename, textname, textdescription, allowwildcardsubs, acls } })
       }
       toast.success(t("roles.saved"))
       await queryClient.invalidateQueries({ queryKey: rolesKey })
@@ -228,12 +248,33 @@ function RoleDialog({ role, onClose }: { role: Role | null; onClose: () => void 
                 <FieldDescription>{t("roles.allowWildcardsHint")}</FieldDescription>
               </FieldContent>
             </Field>
+            {granting && (
+              <Field>
+                <FieldLabel htmlFor="role-topics">{t("roles.grantTopics")}</FieldLabel>
+                <ChipsInput id="role-topics" className="font-mono" placeholder="home/livingroom/temperature" value={topics} onChange={setTopics} />
+                <div className="flex flex-wrap gap-x-4 gap-y-2">
+                  {grantTypes.map((type) => (
+                    <Field key={type} orientation="horizontal" className="w-auto">
+                      <Checkbox
+                        id={`role-grant-${type}`}
+                        checked={grants.includes(type)}
+                        onCheckedChange={(checked) => setGrants((current) => (checked === true ? [...current, type] : current.filter((g) => g !== type)))}
+                      />
+                      <FieldLabel htmlFor={`role-grant-${type}`} className="font-normal">
+                        {t(`roles.aclTypes.${type}`)}
+                      </FieldLabel>
+                    </Field>
+                  ))}
+                </div>
+                <FieldDescription>{t("roles.grantTopicsHint")}</FieldDescription>
+              </Field>
+            )}
           </FieldGroup>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>
               {t("common.cancel")}
             </Button>
-            <Button type="submit" disabled={saving}>
+            <Button type="submit" disabled={saving || (granting && topics.length > 0 && grants.length === 0)}>
               {saving && <Spinner />}
               {t("common.save")}
             </Button>
@@ -261,11 +302,16 @@ function AclDialog({ role, onClose }: { role: Role; onClose: () => void }) {
   async function submit(event: FormEvent) {
     event.preventDefault()
     try {
-      await add.mutateAsync({ params: { path: { rolename: role.rolename } }, body: { acltype, topic, priority, allow } })
-      await queryClient.invalidateQueries({ queryKey: rolesKey })
+      // rules the role has already would fail, so Pub/Sub adds only what is missing
+      const types = aclTypesOf(acltype, topic).filter((type) => acltype !== pubSub || !role.acls.some((acl) => acl.acltype === type && acl.topic === topic))
+      for (const type of types) {
+        await add.mutateAsync({ params: { path: { rolename: role.rolename } }, body: { acltype: type, topic, priority, allow } })
+      }
       setTopic("")
     } catch (error) {
       errorToast(error)
+    } finally {
+      await queryClient.invalidateQueries({ queryKey: rolesKey })
     }
   }
 
@@ -328,6 +374,7 @@ function AclDialog({ role, onClose }: { role: Role; onClose: () => void }) {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value={pubSub}>{t("roles.pubSub")}</SelectItem>
                   {aclTypes.map((type) => (
                     <SelectItem key={type} value={type}>
                       {t(`roles.aclTypes.${type}`)}

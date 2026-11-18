@@ -3,6 +3,7 @@ package com.dfc.mosquittoui.api;
 import static io.restassured.RestAssured.given;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.emptyOrNullString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasItem;
@@ -155,6 +156,23 @@ class DynsecApiTest {
         given().get("/api/roles").then().body("find { it.rolename == 'acl-role' }.acls.size()", equalTo(0));
 
         given().delete("/api/roles/acl-role").then().statusCode(204);
+    }
+
+    @Test
+    void roleWithAcls() {
+        json().body(Map.of("rolename", "topic-role", "allowwildcardsubs", false, "acls", List.of(
+                Map.of("acltype", "subscribeLiteral", "topic", "home/temp", "priority", 0, "allow", true),
+                Map.of("acltype", "publishClientSend", "topic", "home/temp", "priority", 0, "allow", true))))
+                .post("/api/roles").then().statusCode(204);
+        given().get("/api/roles").then()
+                .body("find { it.rolename == 'topic-role' }.acls.acltype", containsInAnyOrder("publishClientSend", "subscribeLiteral"))
+                .body("find { it.rolename == 'topic-role' }.acls.topic", contains("home/temp", "home/temp"));
+        given().delete("/api/roles/topic-role").then().statusCode(204);
+
+        // a rule the API refuses creates no role
+        json().body(Map.of("rolename", "bad-role", "allowwildcardsubs", false, "acls", List.of(Map.of("acltype", "bogus", "topic", "a", "priority", 0, "allow", true))))
+                .post("/api/roles").then().statusCode(400);
+        given().get("/api/roles").then().body("rolename", not(hasItem("bad-role")));
     }
 
     @Test

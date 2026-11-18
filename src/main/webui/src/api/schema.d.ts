@@ -2490,6 +2490,7 @@ export interface components {
             textname?: string;
             textdescription?: string;
             allowwildcardsubs?: boolean;
+            acls?: components["schemas"]["Acl"][] | null;
         };
         /** @enum {string} */
         RoleSource: "ID_TOKEN" | "ACCESS_TOKEN" | "USER_INFO";

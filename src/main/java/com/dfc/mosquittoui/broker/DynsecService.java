@@ -162,9 +162,19 @@ public class DynsecService {
         return roles;
     }
 
+    /** With its rules in the same command, so that a rule the broker refuses leaves no role behind. */
     public void createRole(RoleCreate role) {
-        dynsec.call(withTexts(dynsec.command("createRole").put("rolename", role.rolename()), role.textname(), role.textdescription())
-                .put("allowwildcardsubs", role.allowwildcardsubs()));
+        ObjectNode command = withTexts(dynsec.command("createRole").put("rolename", role.rolename()), role.textname(), role.textdescription())
+                .put("allowwildcardsubs", role.allowwildcardsubs());
+        if (role.acls() != null && !role.acls().isEmpty()) {
+            ArrayNode acls = command.putArray("acls");
+            role.acls().forEach(acl -> acls.addObject()
+                    .put("acltype", acl.acltype())
+                    .put("topic", acl.topic())
+                    .put("priority", acl.priority())
+                    .put("allow", acl.allow()));
+        }
+        dynsec.call(command);
         changed();
     }
 

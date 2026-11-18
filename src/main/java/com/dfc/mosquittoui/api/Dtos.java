@@ -95,8 +95,9 @@ public final class Dtos {
             boolean locked) {
     }
 
+    /** acls: rules the role starts with, created together with it; may be missing. */
     public record RoleCreate(@NotBlank @Pattern(regexp = NAME) String rolename, String textname, String textdescription,
-            boolean allowwildcardsubs) {
+            boolean allowwildcardsubs, @Schema(nullable = true) List<@Valid Acl> acls) {
     }
 
     public record RoleUpdate(String textname, String textdescription, boolean allowwildcardsubs) {
