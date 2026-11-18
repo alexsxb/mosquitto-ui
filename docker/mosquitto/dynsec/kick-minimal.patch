@@ -1,0 +1,254 @@
+diff --git a/plugins/dynamic-security/clients.c b/plugins/dynamic-security/clients.c
+index 3a5ac57..6e1cffa 100644
+--- a/plugins/dynamic-security/clients.c
++++ b/plugins/dynamic-security/clients.c
+@@ -870,8 +870,12 @@ int dynsec_clients__process_modify(struct dynsec__data *data, struct mosquitto_c
+ 	dynsec__config_batch_save(data);
+ 	mosquitto_control_command_reply(cmd, NULL);
+ 
+-	/* Enforce any changes */
+-	dynsec_kicklist__add(data, username);
++	/* Enforce any changes; mosquitto-ui: not for a new name or description alone. A modifyClient without any change still
++	 * disconnects, as the plugin has no other way to do that on purpose. */
++	if(data->kick_always || have_password || have_clientid || have_rolelist || (j_groups && cJSON_IsArray(j_groups))
++			|| (!have_text_name && !have_text_description)){
++		dynsec_kicklist__add(data, username);
++	}
+ 
+ 	admin_clientid = mosquitto_client_id(cmd->client);
+ 	admin_username = mosquitto_client_username(cmd->client);
+diff --git a/plugins/dynamic-security/dynamic_security.h b/plugins/dynamic-security/dynamic_security.h
+index 863425f..bd47d04 100644
+--- a/plugins/dynamic-security/dynamic_security.h
++++ b/plugins/dynamic-security/dynamic_security.h
+@@ -153,6 +153,7 @@ struct dynsec__data {
+ 	int64_t changeindex;
+ 	int init_mode;
+ 	bool need_save;
++	bool kick_always; /* mosquitto-ui: plugin_opt_kick always, else only kick when a subscribe permission can go away */
+ };
+ 
+ /* ################################################################
+@@ -161,6 +162,12 @@ struct dynsec__data {
+  * #
+  * ################################################################ */
+ 
++/* mosquitto-ui: what a change of rights can take away. Publishing and receiving are checked on each message, so only
++ * subscriptions, which are checked once, need a client to be disconnected. */
++bool dynsec_role__grants_subscribe(const struct dynsec__role *role);
++bool dynsec_role__restricts_subscribe(const struct dynsec__role *role);
++bool dynsec_rolelist__change_can_revoke(struct dynsec__rolelist *old_list, struct dynsec__rolelist *new_list);
++
+ int dynsec__config_init(struct dynsec__data *data);
+ void dynsec__config_save(struct dynsec__data *data);
+ void dynsec__config_batch_save(struct dynsec__data *data);
+diff --git a/plugins/dynamic-security/groups.c b/plugins/dynamic-security/groups.c
+index ec20102..fc6192d 100644
+--- a/plugins/dynamic-security/groups.c
++++ b/plugins/dynamic-security/groups.c
+@@ -171,8 +171,10 @@ int dynsec_groups__process_add_role(struct dynsec__data *data, struct mosquitto_
+ 	dynsec__config_batch_save(data);
+ 	mosquitto_control_command_reply(cmd, NULL);
+ 
+-	/* Enforce any changes */
+-	group__kick_all(data, group);
++	/* Enforce any changes; mosquitto-ui: only a role that forbids subscribing can take something away */
++	if(data->kick_always || dynsec_role__restricts_subscribe(role)){
++		group__kick_all(data, group);
++	}
+ 
+ 	return MOSQ_ERR_SUCCESS;
+ }
+@@ -935,8 +937,10 @@ int dynsec_groups__process_remove_role(struct dynsec__data *data, struct mosquit
+ 	dynsec__config_batch_save(data);
+ 	mosquitto_control_command_reply(cmd, NULL);
+ 
+-	/* Enforce any changes */
+-	group__kick_all(data, group);
++	/* Enforce any changes; mosquitto-ui: only a role that allowed subscribing can take something away when it goes */
++	if(data->kick_always || dynsec_role__grants_subscribe(role)){
++		group__kick_all(data, group);
++	}
+ 
+ 	admin_clientid = mosquitto_client_id(cmd->client);
+ 	admin_username = mosquitto_client_username(cmd->client);
+@@ -955,6 +959,7 @@ int dynsec_groups__process_modify(struct dynsec__data *data, struct mosquitto_co
+ 	struct dynsec__group *group = NULL;
+ 	struct dynsec__rolelist *rolelist = NULL;
+ 	bool have_text_name = false, have_text_description = false, have_rolelist = false;
++	bool do_kick; /* mosquitto-ui */
+ 	const char *str;
+ 	int rc;
+ 	int priority;
+@@ -1060,6 +1065,11 @@ int dynsec_groups__process_modify(struct dynsec__data *data, struct mosquitto_co
+ 		}
+ 	}
+ 
++	/* mosquitto-ui: name and description take nothing away, roles only as dynsec_rolelist__change_can_revoke says; members
++	 * that changed were disconnected above */
++	do_kick = data->kick_always || (j_clients && cJSON_IsArray(j_clients))
++			|| (have_rolelist && dynsec_rolelist__change_can_revoke(group->rolelist, rolelist));
++
+ 	/* Apply remaining changes to group, note that user changes are already applied */
+ 	if(have_text_name){
+ 		mosquitto_free(group->text_name);
+@@ -1082,7 +1092,9 @@ int dynsec_groups__process_modify(struct dynsec__data *data, struct mosquitto_co
+ 	mosquitto_control_command_reply(cmd, NULL);
+ 
+ 	/* Enforce any changes - kick any clients in the *new* group */
+-	group__kick_all(data, group);
++	if(do_kick){
++		group__kick_all(data, group);
++	}
+ 
+ 	admin_clientid = mosquitto_client_id(cmd->client);
+ 	admin_username = mosquitto_client_username(cmd->client);
+diff --git a/plugins/dynamic-security/plugin.c b/plugins/dynamic-security/plugin.c
+index a95ecd0..d263e53 100644
+--- a/plugins/dynamic-security/plugin.c
++++ b/plugins/dynamic-security/plugin.c
+@@ -68,6 +68,13 @@ int mosquitto_plugin_init(mosquitto_plugin_id_t *identifier, void **user_data, s
+ 			if(dynsec_data.config_file == NULL){
+ 				return MOSQ_ERR_NOMEM;
+ 			}
++		}else if(!strcasecmp(options[i].key, "kick")){
++			if(!strcasecmp(options[i].value, "always")){
++				dynsec_data.kick_always = true;
++			}else if(strcasecmp(options[i].value, "minimal")){
++				mosquitto_log_printf(MOSQ_LOG_WARNING, "Warning: Dynamic security plugin_opt_kick must be minimal or always, not '%s'. Using always.", options[i].value);
++				dynsec_data.kick_always = true;
++			}
+ 		}else if(!strcasecmp(options[i].key, "password_init_file")){
+ 			dynsec_data.password_init_file = mosquitto_strdup(options[i].value);
+ 			if(dynsec_data.password_init_file == NULL){
+diff --git a/plugins/dynamic-security/roles.c b/plugins/dynamic-security/roles.c
+index d51128d..d79fab7 100644
+--- a/plugins/dynamic-security/roles.c
++++ b/plugins/dynamic-security/roles.c
+@@ -107,6 +107,55 @@ void dynsec_roles__cleanup(struct dynsec__data *data)
+ }
+ 
+ 
++static bool acls__have(const struct dynsec__acl *acllist, bool allow)
++{
++	const struct dynsec__acl *acl, *acl_tmp = NULL;
++
++	HASH_ITER(hh, acllist, acl, acl_tmp){
++		if(acl->allow == allow){
++			return true;
++		}
++	}
++	return false;
++}
++
++bool dynsec_role__grants_subscribe(const struct dynsec__role *role)
++{
++	return acls__have(role->acls.subscribe_literal, true) || acls__have(role->acls.subscribe_pattern, true);
++}
++
++bool dynsec_role__restricts_subscribe(const struct dynsec__role *role)
++{
++	return role->allow_wildcard_subs == false
++			|| acls__have(role->acls.subscribe_literal, false) || acls__have(role->acls.subscribe_pattern, false);
++}
++
++/* The first matching rule decides, in the order of the roles. A role that leaves or moves can take away what it allowed,
++ * one that arrives or moves can take away with what it forbids. */
++bool dynsec_rolelist__change_can_revoke(struct dynsec__rolelist *old_list, struct dynsec__rolelist *new_list)
++{
++	struct dynsec__rolelist *item, *item_tmp = NULL, *other;
++
++	HASH_ITER(hh, old_list, item, item_tmp){
++		HASH_FIND(hh, new_list, item->rolename, strlen(item->rolename), other);
++		if((other == NULL || other->priority != item->priority) && dynsec_role__grants_subscribe(item->role)){
++			return true;
++		}
++	}
++	HASH_ITER(hh, new_list, item, item_tmp){
++		HASH_FIND(hh, old_list, item->rolename, strlen(item->rolename), other);
++		if((other == NULL || other->priority != item->priority) && dynsec_role__restricts_subscribe(item->role)){
++			return true;
++		}
++	}
++	return false;
++}
++
++static bool acltype__is_subscribe(const char *acltype)
++{
++	return !strcasecmp(acltype, ACL_TYPE_SUB_LITERAL) || !strcasecmp(acltype, ACL_TYPE_SUB_PATTERN);
++}
++
+ static void role__kick_all(struct dynsec__data *data, struct dynsec__role *role)
+ {
+ 	struct dynsec__grouplist *grouplist, *grouplist_tmp = NULL;
+@@ -704,7 +753,10 @@ int dynsec_roles__process_add_acl(struct dynsec__data *data, struct mosquitto_co
+ 	dynsec__config_batch_save(data);
+ 	mosquitto_control_command_reply(cmd, NULL);
+ 
+-	role__kick_all(data, role);
++	/* mosquitto-ui: a new rule can only take something away when it forbids subscribing */
++	if(data->kick_always || (acltype__is_subscribe(acltype) && acl->allow == false)){
++		role__kick_all(data, role);
++	}
+ 
+ 	admin_clientid = mosquitto_client_id(cmd->client);
+ 	admin_username = mosquitto_client_username(cmd->client);
+@@ -777,11 +829,16 @@ int dynsec_roles__process_remove_acl(struct dynsec__data *data, struct mosquitto
+ 
+ 	HASH_FIND(hh, *acllist, topic, strlen(topic), acl);
+ 	if(acl){
++		/* mosquitto-ui: a rule that goes can only take something away when it allowed subscribing */
++		bool revokes = acltype__is_subscribe(acltype) && acl->allow;
++
+ 		role__free_acl(acllist, acl);
+ 		dynsec__config_batch_save(data);
+ 		mosquitto_control_command_reply(cmd, NULL);
+ 
+-		role__kick_all(data, role);
++		if(data->kick_always || revokes){
++			role__kick_all(data, role);
++		}
+ 
+ 		admin_clientid = mosquitto_client_id(cmd->client);
+ 		admin_username = mosquitto_client_username(cmd->client);
+@@ -860,6 +917,7 @@ int dynsec_roles__process_modify(struct dynsec__data *data, struct mosquitto_con
+ 	cJSON *j_acls;
+ 	bool allow_wildcard_subs;
+ 	bool do_kick = false;
++	bool had_subscribe_rules = false;
+ 	struct dynsec__acl *tmp_publish_c_send = NULL, *tmp_publish_c_recv = NULL;
+ 	struct dynsec__acl *tmp_subscribe_literal = NULL, *tmp_subscribe_pattern = NULL;
+ 	struct dynsec__acl *tmp_unsubscribe_literal = NULL, *tmp_unsubscribe_pattern = NULL;
+@@ -903,7 +961,10 @@ int dynsec_roles__process_modify(struct dynsec__data *data, struct mosquitto_con
+ 	if(json_get_bool(cmd->j_command, "allowwildcardsubs", &allow_wildcard_subs, false, true) == MOSQ_ERR_SUCCESS){
+ 		if(role->allow_wildcard_subs != allow_wildcard_subs){
+ 			role->allow_wildcard_subs = allow_wildcard_subs;
+-			do_kick = true;
++			/* mosquitto-ui: allowing wildcards takes nothing away */
++			if(data->kick_always || allow_wildcard_subs == false){
++				do_kick = true;
++			}
+ 		}
+ 	}
+ 
+@@ -929,6 +990,7 @@ int dynsec_roles__process_modify(struct dynsec__data *data, struct mosquitto_con
+ 			return MOSQ_ERR_NOMEM;
+ 		}
+ 
++		had_subscribe_rules = role->acls.subscribe_literal || role->acls.subscribe_pattern;
+ 		role__free_all_acls(&role->acls.publish_c_send);
+ 		role__free_all_acls(&role->acls.publish_c_recv);
+ 		role__free_all_acls(&role->acls.subscribe_literal);
+@@ -942,7 +1004,11 @@ int dynsec_roles__process_modify(struct dynsec__data *data, struct mosquitto_con
+ 		role->acls.subscribe_pattern = tmp_subscribe_pattern;
+ 		role->acls.unsubscribe_literal = tmp_unsubscribe_literal;
+ 		role->acls.unsubscribe_pattern = tmp_unsubscribe_pattern;
+-		do_kick = true;
++		/* mosquitto-ui: only rules for subscribing are checked once; any of them before or after may take something away */
++		if(data->kick_always || had_subscribe_rules
++				|| role->acls.subscribe_literal || role->acls.subscribe_pattern){
++			do_kick = true;
++		}
+ 	}
+ 
+ 	if(do_kick){

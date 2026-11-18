@@ -64,7 +64,7 @@ install_packages() {
         say "Packages (apt)"
         export DEBIAN_FRONTEND=noninteractive
         apt-get update -qq
-        apt-get install -y -qq --no-install-recommends build-essential cmake pkg-config curl ca-certificates gnupg \
+        apt-get install -y -qq --no-install-recommends build-essential cmake pkg-config curl ca-certificates gnupg patch \
             libssl-dev libcjson-dev libsqlite3-dev libargon2-dev libedit-dev >/dev/null
         if apt-cache policy openjdk-21-jre-headless 2>/dev/null | grep -q 'Candidate: [0-9]'; then
             apt-get install -y -qq --no-install-recommends openjdk-21-jre-headless >/dev/null
@@ -86,10 +86,10 @@ install_packages() {
             dnf config-manager --set-enabled crb >/dev/null 2>&1 || true
         fi
         # curl is there already, as curl or curl-minimal, which conflict
-        dnf install -y -q gcc gcc-c++ make cmake pkgconf ca-certificates openssl-devel cjson-devel sqlite-devel \
+        dnf install -y -q gcc gcc-c++ make cmake patch pkgconf ca-certificates openssl-devel cjson-devel sqlite-devel \
             libargon2-devel libedit-devel java-21-openjdk-headless >/dev/null
     else
-        fail "neither apt-get nor dnf: install a C compiler, make, OpenSSL, cJSON, SQLite, libargon2, libedit and Java 21, then run with --skip-packages"
+        fail "neither apt-get nor dnf: install a C compiler, make, patch, OpenSSL, cJSON, SQLite, libargon2, libedit and Java 21, then run with --skip-packages"
     fi
 }
 [ "$packages" = yes ] && install_packages
@@ -115,11 +115,13 @@ UI_UID=$(id -u mosquitto-ui)
 
 # --- Mosquitto --------------------------------------------------------------------------------------------------------
 # Built like the official image (docker/2.1-ubuntu of its source), installed below /usr/local, so that it does not get in the
-# way of a Mosquitto package of the distribution. The headers stay for the plugins.
+# way of a Mosquitto package of the distribution. The headers stay for the plugins. Dynamic security gets the patch of
+# broker/dynsec (it disconnects only clients that could lose a subscription, plugin_opt_kick); a new patch builds again.
 SRC=/usr/local/src/mosquitto-$MOSQUITTO_VERSION
+DYNSEC_PATCH=$HERE/broker/dynsec/kick-minimal.patch
 broker_changed=no
 installed=$(/usr/local/sbin/mosquitto -h 2>/dev/null | sed -n 's/^mosquitto version \([0-9.]*\).*/\1/p' | head -1 || true)
-if [ "$installed" != "$MOSQUITTO_VERSION" ] || [ ! -d "$SRC/include" ]; then
+if [ "$installed" != "$MOSQUITTO_VERSION" ] || [ ! -d "$SRC/include" ] || ! cmp -s "$DYNSEC_PATCH" "$SRC/kick-minimal.patch"; then
     say "Mosquitto $MOSQUITTO_VERSION from source (a few minutes)"
     work=$(mktemp -d)
     trap 'rm -rf "$work"' EXIT
@@ -128,6 +130,8 @@ if [ "$installed" != "$MOSQUITTO_VERSION" ] || [ ! -d "$SRC/include" ]; then
     rm -rf "$SRC"
     mkdir -p "$SRC"
     tar xzf "$work/mosquitto.tar.gz" -C "$SRC" --strip-components=1
+    patch -s -p1 -d "$SRC" < "$DYNSEC_PATCH" || fail "the patch for dynamic security does not apply to Mosquitto $MOSQUITTO_VERSION"
+    cp "$DYNSEC_PATCH" "$SRC/kick-minimal.patch"
     make -C "$SRC" -j "$(nproc)" WITH_ADNS=no WITH_DOCS=no WITH_SHARED_LIBRARIES=yes WITH_SRV=no WITH_STRIP=yes WITH_WEBSOCKETS=yes \
         WITH_HTTP_API=no >"$work/build.log" 2>&1 || { tail -30 "$work/build.log"; fail "building Mosquitto failed"; }
     install -d /usr/local/sbin /usr/local/bin /usr/local/lib

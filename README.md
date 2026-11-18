@@ -76,6 +76,8 @@ plugin_opt_config_file /mosquitto/ui/token-auth/token-auth.json
 
 plugin /usr/lib/mosquitto_dynamic_security.so
 plugin_opt_config_file /mosquitto/data/dynamic-security.json
+# Only with the patched plugin of the broker image, see below
+plugin_opt_kick minimal
 
 # Retained messages and sessions, written as they change (flushed every 5 seconds)
 persistence_location /mosquitto/data
@@ -112,6 +114,25 @@ import of users works.
 - `persist_sqlite` and `persistence true` cannot be combined, the broker refuses to start.
 - The user of the UI needs the role `dynsec-admin`. Its client and the groups and roles it depends on are locked in the
   UI, so that it cannot lock itself out.
+
+### Fewer disconnects (`plugin_opt_kick`)
+
+Dynamic security disconnects clients whose rights change ("disconnected: administrative action" in the log), so that
+the broker checks their subscriptions again: every client of a role when one of its rules changes, every member of a
+group on any change of the group, even of its description. The broker image and the installation without Docker build
+the plugin with [`docker/mosquitto/dynsec/kick-minimal.patch`](docker/mosquitto/dynsec/kick-minimal.patch) instead.
+It adds the option `plugin_opt_kick`:
+
+- `minimal` (the default): only what can take a subscription away disconnects. That is a new rule forbidding to
+  subscribe, removing a rule that allowed it, switching wildcard subscriptions off, and a role that allowed subscribing
+  leaving a client or group (or one that forbids it arriving). A new password, client ID or group membership still
+  disconnects that client, and so does *Disconnect*. Names, descriptions, rules for publishing and receiving and new
+  permissions apply without a new connection: the broker checks publishing and receiving on every message anyway.
+- `always`: on every change, as Mosquitto itself.
+
+Changing the default access never disconnects anyone, with either value (as in Mosquitto). Before saving, the dialogs
+show how many connected clients a change disconnects, following the value the agent finds in `mosquitto.conf`. With the
+plugin of an unpatched Mosquitto the option has no effect; leave it out there.
 
 ## TLS certificate
 

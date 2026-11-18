@@ -21,7 +21,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Spinner } from "@/components/ui/spinner"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Textarea } from "@/components/ui/textarea"
-import { connectedAmong, sameNames } from "@/lib/disconnects"
+import { connectedAmong, rolesChangeCanRevoke, sameNames, useKickMinimal } from "@/lib/disconnects"
 import { useErrorToast } from "@/lib/errors"
 import { useTable } from "@/lib/use-table"
 
@@ -179,7 +179,13 @@ function GroupDialog({ group, onClose }: { group: Group | null; onClose: () => v
   const clientNames = (allClients.data ?? []).filter((client) => !client.locked).map((client) => client.username)
 
   // the broker disconnects all members on a change of the group itself, and those who come or go
-  const groupChanged = group !== null && (textname !== group.textname || textdescription !== group.textdescription || !sameNames(roles, group.roles))
+  // with minimal only when the new roles can take a subscription away, else on any change of the group
+  const kickMinimal = useKickMinimal()
+  const groupChanged =
+    group !== null &&
+    (kickMinimal
+      ? rolesChangeCanRevoke(group.roles, roles, allRoles.data)
+      : textname !== group.textname || textdescription !== group.textdescription || !sameNames(roles, group.roles))
   const disconnected = group
     ? [...(groupChanged ? group.clients : []), ...clients.filter((name) => !group.clients.includes(name)), ...group.clients.filter((name) => !clients.includes(name))]
     : []

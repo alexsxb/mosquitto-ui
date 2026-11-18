@@ -24,6 +24,7 @@ for plugin in inspect token-auth; do
     cp "$ROOT/docker/mosquitto/$plugin"/*.c "$ROOT/docker/mosquitto/$plugin/Makefile" "$dir/broker/$plugin/"
     cp "$ROOT/docker/mosquitto/$plugin"/*.h "$dir/broker/$plugin/" 2>/dev/null || true
 done
+cp -r "$ROOT/docker/mosquitto/dynsec" "$dir/broker/"
 cp "$ROOT/standalone/install.sh" "$ROOT/standalone/mosquitto.conf" "$ROOT/standalone"/*.service "$dir/standalone/"
 ln -s standalone/install.sh "$dir/install.sh"
 printf '%s\n' "$VERSION" > "$dir/VERSION"

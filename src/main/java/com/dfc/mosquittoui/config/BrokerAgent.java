@@ -1,5 +1,6 @@
 package com.dfc.mosquittoui.config;
 
+import com.dfc.mosquittoui.api.Dtos.Kick;
 import com.dfc.mosquittoui.api.Dtos.ListenerForm;
 import jakarta.enterprise.context.ApplicationScoped;
 import java.io.IOException;
@@ -62,6 +63,22 @@ public class BrokerAgent {
             return ManagedConfig.parseMainListeners(Files.readString(control().resolve("main-listeners")));
         } catch (NoSuchFileException e) {
             return List.of();
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    /**
+     * plugin_opt_kick in the main file of the broker, which the agent copies to control/dynsec-kick. Without the file the
+     * broker is older than the patch of docker/mosquitto/dynsec and disconnects on every change; without the line the patch
+     * takes minimal.
+     */
+    public Kick dynsecKick() {
+        try {
+            String line = Files.readString(control().resolve("dynsec-kick")).strip();
+            return line.toLowerCase(java.util.Locale.ROOT).endsWith("always") ? Kick.ALWAYS : Kick.MINIMAL;
+        } catch (NoSuchFileException e) {
+            return Kick.ALWAYS;
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }

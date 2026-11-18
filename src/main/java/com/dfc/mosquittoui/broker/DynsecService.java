@@ -12,6 +12,7 @@ import com.dfc.mosquittoui.api.Dtos.GroupView;
 import com.dfc.mosquittoui.api.Dtos.RoleCreate;
 import com.dfc.mosquittoui.api.Dtos.RoleUpdate;
 import com.dfc.mosquittoui.api.Dtos.RoleView;
+import com.dfc.mosquittoui.config.BrokerAgent;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -45,6 +46,9 @@ public class DynsecService {
 
     @Inject
     ClientLogins logins;
+
+    @Inject
+    BrokerAgent agent;
 
     /** Others that follow clients and roles, such as the file of the token login */
     @Inject
@@ -244,7 +248,7 @@ public class DynsecService {
             }
         });
         return new AccessView(new AccessDefaults(allowed.contains("publishClientSend"), allowed.contains("publishClientReceive"), allowed.contains("subscribe"),
-                allowed.contains("unsubscribe")), anonymousGroup());
+                allowed.contains("unsubscribe")), anonymousGroup(), agent.dynsecKick());
     }
 
     /** Takes effect at the next check, nobody gets disconnected. */

@@ -24,7 +24,7 @@ import { Spinner } from "@/components/ui/spinner"
 import { Switch } from "@/components/ui/switch"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Textarea } from "@/components/ui/textarea"
-import { sameNames } from "@/lib/disconnects"
+import { sameNames, useKickMinimal } from "@/lib/disconnects"
 import { useErrorToast } from "@/lib/errors"
 import { formatDateTime } from "@/lib/format"
 import { useTable } from "@/lib/use-table"
@@ -339,9 +339,11 @@ function ClientDialog({ client, onClose }: { client: Client | null; onClose: () 
   const [textdescription, setTextdescription] = useState(client?.textdescription ?? "")
   const [roles, setRoles] = useState(client?.roles ?? [])
   const [groups, setGroups] = useState(client?.groups ?? [])
-  // the broker disconnects a client on every change of it
+  // the broker disconnects a client on every change of it, with minimal not for name and description
+  const kickMinimal = useKickMinimal()
   const clientChanged =
-    client !== null && (textname !== client.textname || textdescription !== client.textdescription || !sameNames(roles, client.roles) || !sameNames(groups, client.groups))
+    client !== null &&
+    (!sameNames(roles, client.roles) || !sameNames(groups, client.groups) || (!kickMinimal && (textname !== client.textname || textdescription !== client.textdescription)))
 
   async function submit(event: FormEvent) {
     event.preventDefault()

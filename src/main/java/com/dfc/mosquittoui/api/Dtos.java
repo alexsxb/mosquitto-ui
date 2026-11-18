@@ -111,7 +111,15 @@ public final class Dtos {
     }
 
     /** anonymousGroup: empty as long as none was set. */
-    public record AccessView(AccessDefaults defaults, String anonymousGroup) {
+    /**
+     * kick: when dynamic security disconnects clients, plugin_opt_kick of docker/mosquitto/dynsec/kick-minimal.patch. MINIMAL
+     * only when a change can take a subscription away, ALWAYS on every change, as Mosquitto itself.
+     */
+    public record AccessView(AccessDefaults defaults, String anonymousGroup, Kick kick) {
+    }
+
+    public enum Kick {
+        MINIMAL, ALWAYS
     }
 
     public record AnonymousGroup(@NotBlank String groupname) {

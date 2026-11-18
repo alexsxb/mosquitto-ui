@@ -23,7 +23,7 @@ import { Spinner } from "@/components/ui/spinner"
 import { Switch } from "@/components/ui/switch"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Textarea } from "@/components/ui/textarea"
-import { connectedAmong, holdersOf } from "@/lib/disconnects"
+import { connectedAmong, holdersOf, useKickMinimal } from "@/lib/disconnects"
 import { useErrorToast } from "@/lib/errors"
 import { useTable } from "@/lib/use-table"
 
@@ -205,6 +205,7 @@ function RoleDialog({ role, onClose }: { role: Role | null; onClose: () => void 
   const create = $api.useMutation("post", "/api/roles")
   const update = $api.useMutation("put", "/api/roles/{rolename}")
   const affected = useRoleHolders(role?.rolename)
+  const kickMinimal = useKickMinimal()
 
   const [rolename, setRolename] = useState(role?.rolename ?? "")
   const [textname, setTextname] = useState(role?.textname ?? "")
@@ -286,8 +287,10 @@ function RoleDialog({ role, onClose }: { role: Role | null; onClose: () => void 
               </Field>
             )}
           </FieldGroup>
-          {/* name and description alone disconnect nobody, switching wildcards does */}
-          {role && allowwildcardsubs !== role.allowwildcardsubs && <DisconnectHint count={affected.connected} anonymous={affected.anonymous} />}
+          {/* name and description alone disconnect nobody, switching wildcards does; with minimal only switching them off */}
+          {role && allowwildcardsubs !== role.allowwildcardsubs && (!kickMinimal || !allowwildcardsubs) && (
+            <DisconnectHint count={affected.connected} anonymous={affected.anonymous} />
+          )}
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>
               {t("common.cancel")}
@@ -309,6 +312,7 @@ function AclDialog({ role, onClose }: { role: Role; onClose: () => void }) {
   const errorToast = useErrorToast()
   const add = $api.useMutation("post", "/api/roles/{rolename}/acls")
   const affected = useRoleHolders(role.rolename)
+  const kickMinimal = useKickMinimal()
   const remove = $api.useMutation("delete", "/api/roles/{rolename}/acls")
 
   const [acltype, setAcltype] = useState<string>(aclTypes[0])
@@ -350,7 +354,7 @@ function AclDialog({ role, onClose }: { role: Role; onClose: () => void }) {
           <DialogTitle>{t("roles.aclsTitle", { name: role.rolename })}</DialogTitle>
           <DialogDescription>{role.locked ? t("common.lockedHint") : t("roles.aclsDesc")}</DialogDescription>
         </DialogHeader>
-        {!role.locked && <DisconnectHint rules count={affected.connected} anonymous={affected.anonymous} />}
+        {!role.locked && <DisconnectHint rules={kickMinimal ? "minimal" : "always"} count={affected.connected} anonymous={affected.anonymous} />}
         {sorted.length === 0 ? (
           <p className="py-4 text-center text-sm text-muted-foreground">{t("roles.aclsEmpty")}</p>
         ) : (

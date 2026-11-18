@@ -74,6 +74,8 @@ chown -h "$UI_UID" "$CONTROL" "$UI_DIR/backups"
 chmod 700 "$CONTROL" "$UI_DIR/backups"
 
 grep -E '^[[:space:]]*(listener|port|protocol|certfile|keyfile|cafile|max_connections)[[:space:]]' "$CONF" | new_file "$CONTROL/main-listeners"
+# When dynamic security disconnects clients (dynsec/kick-minimal.patch); empty without the line, which means minimal
+{ grep -E '^[[:space:]]*plugin_opt_kick[[:space:]]' "$CONF" || true; } | tail -1 | new_file "$CONTROL/dynsec-kick"
 
 start_broker() {
     mosquitto -c "$CONF" &

@@ -9,3 +9,4 @@
 !inspect/inspect.c
 !inspect/rules.c
 !inspect/rules.h
+!dynsec/kick-minimal.patch

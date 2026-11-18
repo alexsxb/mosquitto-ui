@@ -1740,6 +1740,7 @@ export interface components {
         AccessView: {
             defaults: components["schemas"]["AccessDefaults"];
             anonymousGroup: string;
+            kick: components["schemas"]["Kick"];
         };
         Acl: {
             acltype: string;
@@ -2267,6 +2268,8 @@ export interface components {
         };
         /** @enum {string} */
         KeySource: "discovery" | "jwks" | "keys";
+        /** @enum {string} */
+        Kick: "MINIMAL" | "ALWAYS";
         ListenerForm: {
             /** Format: int32 */
             port?: number;

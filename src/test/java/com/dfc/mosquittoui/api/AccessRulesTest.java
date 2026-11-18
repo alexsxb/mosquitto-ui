@@ -336,11 +336,122 @@ class AccessRulesTest {
         Thread.sleep(2000);
         assertFalse(closed.isDone(), "Saving without a change disconnected the client");
 
-        // a real change still does, as the plugin wants it
-        json().body(Map.of("textname", "Group", "textdescription", "changed", "roles", List.of("kept-role"), "clients", List.of("kept", "joining"))).put("/api/groups/kept-group")
+        // a real change still does when it can take a subscription away: the group loses a role that allowed subscribing
+        dynsec.call(dynsec.command("addRoleACL").put("rolename", "kept-role").put("acltype", "subscribeLiteral").put("topic", "kept/x").put("allow", true));
+        json().body(Map.of("textname", "Group", "textdescription", "changed", "roles", List.of(), "clients", List.of("kept", "joining"))).put("/api/groups/kept-group")
                 .then().statusCode(204);
         closed.get(10, TimeUnit.SECONDS);
         given().get("/api/groups").then().body("find { it.groupname == 'kept-group' }.textdescription", equalTo("changed"));
+    }
+
+    /** One connection of a client that comes back after the broker disconnected it. */
+    private final class Watched {
+        private final String username;
+        private final BlockingQueue<String> messages = new LinkedBlockingQueue<>();
+        private MqttClient client;
+        private CompletableFuture<Void> closed;
+
+        Watched(String username) throws Exception {
+            this.username = username;
+            open();
+        }
+
+        private void open() throws Exception {
+            client = connect(username, username + "-id", messages);
+            closed = new CompletableFuture<>();
+            client.closeHandler(v -> closed.complete(null));
+        }
+
+        void kept(String change) throws Exception {
+            Thread.sleep(1500);
+            assertFalse(closed.isDone(), change + " disconnected the client");
+        }
+
+        void disconnected(String change) throws Exception {
+            try {
+                closed.get(10, TimeUnit.SECONDS);
+            } catch (java.util.concurrent.TimeoutException e) {
+                throw new AssertionError(change + " did not disconnect the client", e);
+            }
+            open();
+        }
+    }
+
+    private void acl(String command, String rolename, String acltype, String topic, boolean allow) {
+        ObjectNode call = dynsec.command(command).put("rolename", rolename).put("acltype", acltype).put("topic", topic);
+        if (command.equals("addRoleACL")) {
+            call.put("allow", allow);
+        }
+        dynsec.call(call);
+    }
+
+    /**
+     * plugin_opt_kick minimal (the default of docker/mosquitto/dynsec/kick-minimal.patch): only what can take a subscription
+     * away disconnects, as publishing and receiving are checked on every message.
+     */
+    @Test
+    void onlyWhatCanTakeASubscriptionAwayDisconnects() throws Exception {
+        role("kick-role", true, "subscribePattern", "kick/#", true, 0, "publishClientSend", "kick/#", true, 0);
+        group("kick-group", "kick-role", 0);
+        role("kick-allow", true, "subscribeLiteral", "kick/other", true, 0);
+        client("kicked");
+        clientRole("kicked", "kick-role", 0);
+        clientGroup("kicked", "kick-group", 0);
+        // a role of its own, so that the changes below never disconnect it
+        role("kick-send", true, "publishClientSend", "kick/#", true, 0);
+        client("kick-sender");
+        clientRole("kick-sender", "kick-send", 0);
+        // the agent tells the UI, which says before saving who gets disconnected
+        given().get("/api/access").then().body("kick", equalTo("MINIMAL"));
+        Watched watched = new Watched("kicked");
+        MqttClient sender = connect("kick-sender", "kick-sender-id", new LinkedBlockingQueue<>());
+        assertTrue(granted(watched.client, "kick/x"));
+
+        // what grants more, or is checked on every message, keeps the connection
+        acl("addRoleACL", "kick-role", "publishClientSend", "kick/send", true);
+        watched.kept("A rule for publishing");
+        acl("addRoleACL", "kick-role", "subscribeLiteral", "kick/literal", true);
+        watched.kept("A rule allowing to subscribe");
+        acl("removeRoleACL", "kick-role", "subscribeLiteral", "kick/literal", true);
+        watched.disconnected("Taking away a rule that allowed subscribing");
+        acl("addRoleACL", "kick-role", "subscribeLiteral", "kick/denied", false);
+        watched.disconnected("A rule forbidding to subscribe");
+        acl("removeRoleACL", "kick-role", "subscribeLiteral", "kick/denied", false);
+        watched.kept("Taking away a rule that forbade subscribing");
+        dynsec.call(dynsec.command("modifyClient").put("username", "kicked").put("textname", "Kicked").put("textdescription", "only text"));
+        watched.kept("A new name of the client");
+        dynsec.call(dynsec.command("modifyGroup").put("groupname", "kick-group").put("textdescription", "only text"));
+        watched.kept("A new description of the group");
+        dynsec.call(dynsec.command("addGroupRole").put("groupname", "kick-group").put("rolename", "kick-allow").put("priority", 0));
+        watched.kept("A role that only allows");
+        dynsec.call(dynsec.command("removeGroupRole").put("groupname", "kick-group").put("rolename", "kick-allow"));
+        watched.disconnected("Taking away a role that allowed subscribing");
+
+        // receiving is checked on every message: a new rule forbidding it holds at once, without a new connection
+        CompletableFuture<Integer> subscribed = new CompletableFuture<>();
+        watched.client.subscribeCompletionHandler(ack -> subscribed.complete(ack.grantedQoSLevels().getFirst()));
+        done(watched.client.subscribe("kick/x", MqttQoS.AT_MOST_ONCE.value()));
+        assertTrue(subscribed.get(10, TimeUnit.SECONDS) != DENIED);
+        done(sender.publish("kick/x", Buffer.buffer("1"), MqttQoS.AT_MOST_ONCE, false, false));
+        assertEquals("kick/x", watched.messages.poll(10, TimeUnit.SECONDS));
+        acl("addRoleACL", "kick-role", "publishClientReceive", "kick/#", false);
+        watched.kept("A rule forbidding to receive");
+        done(sender.publish("kick/x", Buffer.buffer("2"), MqttQoS.AT_MOST_ONCE, false, false));
+        assertEquals(null, watched.messages.poll(2, TimeUnit.SECONDS), "The rule forbidding to receive did not hold for the subscription");
+
+        // wildcards: allowing them grants, forbidding them takes away
+        dynsec.call(dynsec.command("modifyRole").put("rolename", "kick-role").put("allowwildcardsubs", false));
+        watched.disconnected("Switching wildcards off");
+        dynsec.call(dynsec.command("modifyRole").put("rolename", "kick-role").put("allowwildcardsubs", true));
+        watched.kept("Switching wildcards on");
+
+        // a modifyClient without any change disconnects on purpose (the button Disconnect)
+        dynsec.call(dynsec.command("modifyClient").put("username", "kicked"));
+        watched.disconnected("A modifyClient without a change");
+        dynsec.call(dynsec.command("setClientPassword").put("username", "kicked").put("password", PASSWORD));
+        watched.disconnected("A new password");
+        done(sender.disconnect());
+        done(watched.client.disconnect());
     }
 
     @Test
