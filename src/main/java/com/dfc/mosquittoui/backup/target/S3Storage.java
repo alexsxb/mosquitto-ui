@@ -70,6 +70,10 @@ final class S3Storage implements TargetStorage {
         this.partSize = partSize;
         scheme = settings.tls() ? "https" : "http";
         String endpoint = settings.host().strip().replaceFirst("^https?://", "").replaceFirst("/+$", "");
+        // an IPv6 address needs brackets in the URL and in the Host header, which the signature covers
+        if (endpoint.indexOf(':') != endpoint.lastIndexOf(':') && !endpoint.startsWith("[")) {
+            endpoint = "[" + endpoint + "]";
+        }
         boolean defaultPort = settings.port() <= 0 || settings.port() == (settings.tls() ? 443 : 80);
         // AWS expects the bucket in the host name, other providers (MinIO, ...) reliably accept it in the path
         boolean virtualHosted = endpoint.endsWith("amazonaws.com");

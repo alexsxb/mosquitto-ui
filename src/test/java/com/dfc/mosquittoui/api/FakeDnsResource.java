@@ -34,7 +34,9 @@ public class FakeDnsResource {
     ObjectMapper mapper;
 
     private void dns(String path, Object body) throws IOException, InterruptedException {
-        String url = "http://" + PebbleResource.dns.getHost() + ":" + PebbleResource.dns.getMappedPort(8055) + path;
+        // in a job container of the runner the host of Docker can be an IPv6 address, which needs brackets in a URL
+        String host = PebbleResource.dns.getHost();
+        String url = "http://" + (host.contains(":") ? "[" + host + "]" : host) + ":" + PebbleResource.dns.getMappedPort(8055) + path;
         HTTP.send(HttpRequest.newBuilder(URI.create(url)).POST(HttpRequest.BodyPublishers.ofString(mapper.writeValueAsString(body))).build(),
                 HttpResponse.BodyHandlers.ofString());
     }
