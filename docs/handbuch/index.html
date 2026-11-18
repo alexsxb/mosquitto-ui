@@ -126,7 +126,7 @@ main { padding: 40px 48px 120px; min-width: 0; max-width: 900px; }
       <ol><li><a href="#voraussetzungen">Voraussetzungen</a></li><li><a href="#docker">Mit Docker Compose</a></li><li><a href="#ohne-docker">Ohne Docker (systemd)</a></li>
       <li><a href="#anmeldung">Anmeldung</a></li><li><a href="#https">HTTPS und Reverse Proxy</a></li><li><a href="#erste-schritte">Erste Schritte</a></li></ol></li>
     <li><a href="#konzepte">Grundbegriffe</a>
-      <ol><li><a href="#rechte">Clients, Gruppen, Rollen</a></li><li><a href="#reihenfolge">Wie der Broker entscheidet</a></li><li><a href="#konfig-dateien">Wo die Konfiguration steht</a></li></ol></li>
+      <ol><li><a href="#rechte">Clients, Gruppen, Rollen</a></li><li><a href="#reihenfolge">Wie der Broker entscheidet</a></li><li><a href="#trennen">Wann Clients getrennt werden</a></li><li><a href="#konfig-dateien">Wo die Konfiguration steht</a></li></ol></li>
     <li><a href="#seiten">Die Seiten</a>
       <ol><li><a href="#s-dashboard">Dashboard</a></li><li><a href="#s-topics">Topics</a></li><li><a href="#s-sitzungen">Sitzungen</a></li><li><a href="#s-aufzeichnung">Aufzeichnung</a></li>
       <li><a href="#s-logs">Logs</a></li><li><a href="#s-clients">Clients</a></li><li><a href="#s-gruppen">Gruppen und Rollen</a></li><li><a href="#s-regeln">Regeln</a></li>
@@ -367,6 +367,20 @@ Nachrichten auf normalen Topics senden. Geräte bekommen eigene Clients. Die UI 
 </ol>
 <p>Der ACL-Tester auf der Seite <a href="#s-regeln">Regeln</a> rechnet genau das nach und nennt die Regel, die entscheidet.</p>
 
+<h3 id="trennen">Wann Clients getrennt werden</h3>
+<p>Ändern sich die Rechte eines Clients, trennt <em>Dynamic Security</em> ihn, damit der Broker seine Abos neu prüft (im Log
+<code>disconnected: administrative action</code>; die meisten Geräte verbinden sich sofort neu). Senden und Empfangen prüft der Broker
+bei jeder Nachricht, nur das Abonnieren einmal. Das Plugin im Broker der UI trennt darum nur, wenn eine Änderung ein Abo wegnehmen kann:</p>
+<table>
+<tr><th>Trennt</th><th>Wirkt ohne Trennung</th></tr>
+<tr><td>Regel, die das Abonnieren verbietet, kommt dazu; Regel, die es erlaubt, fällt weg; Wildcard-Abos aus; eine Rolle, die Abos erlaubt,
+fällt bei Client oder Gruppe weg (oder eine, die sie verbietet, kommt dazu); neues Passwort, neue Client-ID, Mitgliedschaft in einer Gruppe;
+<em>Trennen</em></td>
+<td>Namen und Beschreibungen, alle Regeln zum Publizieren und Empfangen, neue Erlaubnisse, Wildcard-Abos an, der Standardzugriff</td></tr>
+</table>
+<p>Die Dialoge sagen vor dem Speichern, wie viele verbundene Clients eine Änderung trennt. Mit <code>plugin_opt_kick always</code> in
+<code>mosquitto.conf</code> trennt das Plugin wie Mosquitto selbst bei jeder Änderung; ohne die Zeile gilt <code>minimal</code>.</p>
+
 <h3 id="konfig-dateien">Wo die Konfiguration steht</h3>
 <ul>
   <li><code>mosquitto.conf</code> gehört dir (im Image fest, ohne Docker <code>/etc/mosquitto-ui/mosquitto.conf</code>). Sie lädt die Plugins und
@@ -433,6 +447,7 @@ ob es sich verbindet, was es abonniert und ob der Broker etwas verweigert.</p></
   <li>Anlegen mit Passwort, Rollen und Gruppen; aktiv/inaktiv schalten (inaktiv: kann sich nicht anmelden).</li>
   <li>Je Zeile: bearbeiten, Passwort ändern, <em>Trennen</em> (alle Verbindungen dieses Logins; die meisten Geräte kommen sofort wieder), Log, löschen.</li>
   <li><em>Zuletzt verbunden</em> mit Adresse merkt sich die UI selbst, sie schaut alle 15 Sekunden nach.</li>
+  <li>Neue Rollen oder Gruppen trennen den Client, wenn er verbunden ist; der Dialog sagt es vorher. Name und Beschreibung ändern nichts an der Verbindung, Speichern ohne Änderung schickt nichts an den Broker.</li>
   <li>Darunter eine eigene Tabelle für Clients, die mit einem Access-Token gekommen sind.</li>
 </ul>
 <figure><img src="img/08-client-bearbeiten.png" alt="Dialog Client bearbeiten" loading="lazy" width="1280" height="820"><figcaption>Rollen und Gruppen eines Clients.</figcaption></figure>
@@ -440,10 +455,16 @@ ob es sich verbindet, was es abonniert und ob der Broker etwas verweigert.</p></
 <h3 id="s-gruppen">Gruppen und Rollen</h3>
 <figure><img src="img/10-rollen.png" alt="Rollen mit ihren Regeln" loading="lazy" width="1280" height="820"><figcaption>Rollen mit ihren Regeln. Rollen mit Schloss gehören zur UI.</figcaption></figure>
 <ul>
-  <li><strong>Rollen:</strong> Regeln hinzufügen (Typ, Topic, Priorität, erlauben/verbieten), Wildcard-Abos erlauben.</li>
-  <li><strong>Gruppen:</strong> Rollen und Mitglieder; die Gruppe für anonyme Clients ist markiert.</li>
+  <li><strong>Rollen:</strong> Regeln hinzufügen (Typ, Topic, Priorität, erlauben/verbieten), Wildcard-Abos erlauben. <em>Publizieren und Abonnieren</em>
+    legt für ein Topic auf einmal die Regeln zum Publizieren, Empfangen und Abonnieren an (bei <code>+</code>/<code>#</code> als Muster) und lässt aus, was die Rolle schon hat.</li>
+  <li><strong>Neue Rolle ohne Wildcard-Abos:</strong> Unter <em>Topics freigeben</em> gleich die Topics eintragen und anhaken, was erlaubt ist
+    (abonnieren, empfangen, publizieren). Rolle und Regeln entstehen in einem Schritt; weitere Regeln später in der Tabelle.</li>
+  <li>Über den Regeln einer Rolle steht, wie viele verbundene Clients eine Änderung trennt, siehe <a href="#trennen">Wann Clients getrennt werden</a>.</li>
+  <li><strong>Gruppen:</strong> Rollen und Mitglieder; die Gruppe für anonyme Clients ist markiert. Neue oder entfernte Mitglieder trennen nur sich selbst.</li>
 </ul>
 <figure><img src="img/09-gruppen.png" alt="Gruppen" loading="lazy" width="1280" height="820"><figcaption>Gruppen mit ihren Rollen und Mitgliedern.</figcaption></figure>
+<figure><img src="img/26-rolle-anlegen.png" alt="Dialog Neue Rolle mit freigegebenen Topics" loading="lazy" width="1280" height="820"><figcaption>Eine neue Rolle ohne Wildcard-Abos darf gleich zwei Topics abonnieren und publizieren.</figcaption></figure>
+<figure><img src="img/27-rolle-regeln.png" alt="Regeln einer Rolle mit Publizieren und Abonnieren und dem Hinweis auf Trennungen" loading="lazy" width="1280" height="820"><figcaption>Die Regeln einer Rolle; oben, wen eine Änderung trennt.</figcaption></figure>
 
 <h3 id="s-regeln">Regeln</h3>
 <figure><img src="img/11-regeln.png" alt="Seite Regeln mit ACL-Tester" loading="lazy" width="1280" height="820"><figcaption>ACL-Tester, Standardzugriff und Gruppe für anonyme Clients.</figcaption></figure>
@@ -487,7 +508,7 @@ ob es sich verbindet, was es abonniert und ob der Broker etwas verweigert.</p></
 <ul>
   <li>Verbindungen zu anderen Brokern, mit Topics je Richtung (<code>in</code>, <code>out</code>, <code>both</code>), Präfixen, Zustand und Warnungen bei Schleifen.</li>
   <li><strong>Victron GX verbinden</strong> richtet eine Bridge in einem Schritt ein, nur lesend oder in beide Richtungen; mit Venus OS ab 3.80 über das Pairing
-    (<em>Settings → Integrations → MQTT Devices</em>, 120 Sekunden).</li>
+    (<em>Settings → Integrations → MQTT Devices</em>, 120 Sekunden). Als Adresse gehen Name, IPv4 oder IPv6 (mit oder ohne eckige Klammern).</li>
   <li>Die UI hält den GX wach (Keepalive alle 30 Sekunden). Läuft die UI nicht, kommen nach einer Minute keine Werte mehr.</li>
   <li>Abschalten behält eine Bridge in der Datei, ohne Neustart.</li>
 </ul>
@@ -504,7 +525,7 @@ ob es sich verbindet, was es abonniert und ob der Broker etwas verweigert.</p></
 <h3 id="s-backups">Backups</h3>
 <figure><img src="img/18-backups.png" alt="Backups mit Job und Ziel" loading="lazy" width="1280" height="820"><figcaption>Ein nächtlicher Job auf ein lokales Ziel.</figcaption></figure>
 <ul>
-  <li><strong>Ziele:</strong> SFTP, FTP/FTPS, S3, ein Verzeichnis, E-Mail. <strong>Jobs:</strong> was, wohin, wann (täglich, wöchentlich, monatlich, von Hand), verschlüsselt mit Passwort oder GPG.</li>
+  <li><strong>Ziele:</strong> SFTP, FTP/FTPS, S3 (Endpunkt auch als IPv6-Adresse), ein Verzeichnis, E-Mail. <strong>Jobs:</strong> was, wohin, wann (täglich, wöchentlich, monatlich, von Hand), verschlüsselt mit Passwort oder GPG.</li>
   <li>Teile: Zugriff, Konfiguration, Bridges, Zertifikate, Retained Messages, Protokoll, Backup-Einstellungen.</li>
   <li><strong>Wiederherstellen</strong> von einem Ziel oder einer hochgeladenen Datei; ersetzt die gewählten Teile und startet den Broker neu. Archive sind mit dem Secret Key signiert.</li>
   <li>Verschlüsselte Backups lassen sich auch ohne UI öffnen: <code>openssl enc -d -aes-256-cbc -pbkdf2 -iter 600000 -md sha256 -in FILE.zip.enc -out FILE.zip</code>.</li>
@@ -519,7 +540,7 @@ ob es sich verbindet, was es abonniert und ob der Broker etwas verweigert.</p></
 <tr><td>Client fehlt</td><td>ein Client, der sonst lange verbunden ist, ist seit 15 Minuten weg; Ausnahmen per Name</td></tr>
 <tr><td>Zertifikat, Backup</td><td>Verlängerung bzw. Backup gescheitert</td></tr>
 <tr><td>Nachrichtenregel</td><td>eine Regel mit Mail hat verworfen, höchstens einmal pro Stunde</td></tr>
-<tr><td>Fehler im Log</td><td>der Broker schrieb eine Zeile der Stufe Fehler, höchstens eine Mail pro Stunde</td></tr>
+<tr><td>Fehler im Log</td><td>der Broker schrieb eine Zeile der Stufe Fehler, höchstens eine Mail pro Stunde; gescheiterte TLS-Handshakes fremder Clients (Scanner, veraltetes TLS) zählen nicht</td></tr>
 <tr><td>Viele abgelehnte Anmeldungen</td><td>10 in 10 Minuten, mit Client-IDs und Adressen</td></tr>
 </table>
 <p>Bei Ausfällen kommt eine zweite Mail, sobald alles wieder läuft. Fällt der ganze Server aus, kann die UI nichts schicken: dafür
@@ -601,6 +622,7 @@ die UI als App auf den Startbildschirm legen.</p>
 <tr><td>Kein Broker-Benutzer nach dem ersten Start</td><td>Passwort kürzer als 12 Zeichen. Datenvolume leeren und mit längerem Passwort neu starten.</td></tr>
 <tr><td>Anmeldung leitet im Kreis</td><td>Proxy setzt <code>X-Forwarded-Proto</code> nicht oder ist nicht als vertrauenswürdig eingetragen.</td></tr>
 <tr><td>Topics oder Logs laufen nicht live</td><td>Proxy puffert: bei nginx <code>proxy_buffering off</code>.</td></tr>
+<tr><td>Viele Neuverbindungen, im Log <code>disconnected: administrative action</code></td><td>Rechte wurden geändert, siehe <a href="#trennen">Wann Clients getrennt werden</a>. Mit <code>plugin_opt_kick always</code> trennt jede Änderung; eine Rolle, die alle Geräte haben, trifft alle.</td></tr>
 <tr><td>Ohne Docker: Port 1883 belegt</td><td>Mosquitto der Distribution läuft: <code>sudo systemctl disable --now mosquitto</code>.</td></tr>
 </table>
 <p>Logs: <code>docker compose logs mosquitto mosquitto-ui</code> bzw. <code>journalctl -u mosquitto-ui-broker -u mosquitto-ui</code>.</p>

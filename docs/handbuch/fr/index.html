@@ -126,7 +126,7 @@ main { padding: 40px 48px 120px; min-width: 0; max-width: 900px; }
       <ol><li><a href="#voraussetzungen">Prérequis</a></li><li><a href="#docker">Avec Docker Compose</a></li><li><a href="#ohne-docker">Sans Docker (systemd)</a></li>
       <li><a href="#anmeldung">Connexion</a></li><li><a href="#https">HTTPS et reverse proxy</a></li><li><a href="#erste-schritte">Premiers pas</a></li></ol></li>
     <li><a href="#konzepte">Notions de base</a>
-      <ol><li><a href="#rechte">Clients, groupes, rôles</a></li><li><a href="#reihenfolge">Comment le broker décide</a></li><li><a href="#konfig-dateien">Où se trouve la configuration</a></li></ol></li>
+      <ol><li><a href="#rechte">Clients, groupes, rôles</a></li><li><a href="#reihenfolge">Comment le broker décide</a></li><li><a href="#trennen">Quand les clients sont déconnectés</a></li><li><a href="#konfig-dateien">Où se trouve la configuration</a></li></ol></li>
     <li><a href="#seiten">Les pages</a>
       <ol><li><a href="#s-dashboard">Tableau de bord</a></li><li><a href="#s-topics">Topics</a></li><li><a href="#s-sitzungen">Sessions</a></li><li><a href="#s-aufzeichnung">Enregistrement</a></li>
       <li><a href="#s-logs">Logs</a></li><li><a href="#s-clients">Clients</a></li><li><a href="#s-gruppen">Groupes et rôles</a></li><li><a href="#s-regeln">Règles</a></li>
@@ -367,6 +367,20 @@ contre les modifications, pour ne pas s'enfermer dehors.</p></div>
 </ol>
 <p>Le testeur d'ACL de la page <a href="#s-regeln">Règles</a> refait exactement ce calcul et indique la règle décisive.</p>
 
+<h3 id="trennen">Quand les clients sont déconnectés</h3>
+<p>Quand les droits d'un client changent, <em>Dynamic Security</em> le déconnecte pour que le broker vérifie à nouveau ses abonnements (dans le log
+<code>disconnected: administrative action</code>&nbsp;; la plupart des appareils se reconnectent aussitôt). Le broker vérifie la publication et la
+réception à chaque message, l'abonnement une seule fois. Le plugin du broker de l'UI ne déconnecte donc que si une modification peut retirer un abonnement&nbsp;:</p>
+<table>
+<tr><th>Déconnecte</th><th>S'applique sans déconnexion</th></tr>
+<tr><td>une nouvelle règle qui interdit l'abonnement&nbsp;; la suppression d'une règle qui l'autorise&nbsp;; abonnements avec jokers désactivés&nbsp;;
+un rôle qui autorise des abonnements retiré d'un client ou d'un groupe (ou un rôle qui les interdit ajouté)&nbsp;; nouveau mot de passe, nouvel ID client,
+appartenance à un groupe&nbsp;; <em>Déconnecter</em></td>
+<td>noms et descriptions, toutes les règles de publication et de réception, les nouvelles autorisations, jokers activés, l'accès par défaut</td></tr>
+</table>
+<p>Avant l'enregistrement, les fenêtres indiquent combien de clients connectés une modification déconnecte. Avec <code>plugin_opt_kick always</code>
+dans <code>mosquitto.conf</code>, le plugin déconnecte à chaque modification, comme Mosquitto lui-même&nbsp;; sans la ligne, <code>minimal</code> s'applique.</p>
+
 <h3 id="konfig-dateien">Où se trouve la configuration</h3>
 <ul>
   <li><code>mosquitto.conf</code> vous appartient (figé dans l'image, sans Docker <code>/etc/mosquitto-ui/mosquitto.conf</code>). Il charge les plugins et,
@@ -433,6 +447,7 @@ s'il se connecte, à quoi il s'abonne et si le broker refuse quelque chose.</p><
   <li>Création avec mot de passe, rôles et groupes&nbsp;; activation/désactivation (inactif&nbsp;: ne peut pas se connecter).</li>
   <li>Sur chaque ligne&nbsp;: modifier, changer le mot de passe, <em>Déconnecter</em> (toutes les connexions de cet identifiant&nbsp;; la plupart des appareils reviennent aussitôt), log, supprimer.</li>
   <li><em>Dernière connexion</em>, avec l'adresse, est mémorisée par l'UI elle-même, qui vérifie toutes les 15 secondes.</li>
+  <li>De nouveaux rôles ou groupes déconnectent le client s'il est connecté&nbsp;; la fenêtre le signale avant. Le nom et la description ne touchent pas à la connexion, et enregistrer sans modification n'envoie rien au broker.</li>
   <li>En dessous, un tableau à part pour les clients venus avec un jeton d'accès.</li>
 </ul>
 <figure><img src="img/08-client-bearbeiten.png" alt="Fenêtre de modification d'un client" loading="lazy" width="1280" height="820"><figcaption>Rôles et groupes d'un client.</figcaption></figure>
@@ -440,10 +455,16 @@ s'il se connecte, à quoi il s'abonne et si le broker refuse quelque chose.</p><
 <h3 id="s-gruppen">Groupes et rôles</h3>
 <figure><img src="img/10-rollen.png" alt="Rôles avec leurs règles" loading="lazy" width="1280" height="820"><figcaption>Rôles avec leurs règles. Les rôles marqués d'un cadenas appartiennent à l'UI.</figcaption></figure>
 <ul>
-  <li><strong>Rôles&nbsp;:</strong> ajouter des règles (type, topic, priorité, autoriser/interdire), «&nbsp;Autoriser les abonnements avec jokers&nbsp;».</li>
-  <li><strong>Groupes&nbsp;:</strong> rôles et membres&nbsp;; le groupe des clients anonymes est signalé.</li>
+  <li><strong>Rôles&nbsp;:</strong> ajouter des règles (type, topic, priorité, autoriser/interdire), «&nbsp;Autoriser les abonnements avec jokers&nbsp;». <em>Publier et s'abonner</em>
+    crée d'un coup les règles de publication, de réception et d'abonnement d'un topic (en motif pour <code>+</code>/<code>#</code>) et omet ce que le rôle a déjà.</li>
+  <li><strong>Nouveau rôle sans jokers&nbsp;:</strong> sous <em>Autoriser des topics</em>, saisir aussitôt les topics et cocher ce qui est permis
+    (s'abonner, recevoir, publier). Le rôle et ses règles sont créés en une étape&nbsp;; d'autres règles ensuite dans le tableau.</li>
+  <li>Au-dessus des règles d'un rôle figure le nombre de clients connectés qu'une modification déconnecte, voir <a href="#trennen">Quand les clients sont déconnectés</a>.</li>
+  <li><strong>Groupes&nbsp;:</strong> rôles et membres&nbsp;; le groupe des clients anonymes est signalé. Les membres ajoutés ou retirés ne déconnectent qu'eux-mêmes.</li>
 </ul>
 <figure><img src="img/09-gruppen.png" alt="Groupes" loading="lazy" width="1280" height="820"><figcaption>Groupes avec leurs rôles et leurs membres.</figcaption></figure>
+<figure><img src="img/26-nouveau-role.png" alt="Fenêtre Nouveau rôle avec des topics autorisés" loading="lazy" width="1280" height="820"><figcaption>Un nouveau rôle sans jokers peut aussitôt s'abonner et publier sur deux topics.</figcaption></figure>
+<figure><img src="img/27-regles-role.png" alt="Règles d'un rôle avec Publier et s'abonner et l'indication des déconnexions" loading="lazy" width="1280" height="820"><figcaption>Les règles d'un rôle&nbsp;; en haut, qui une modification déconnecte.</figcaption></figure>
 
 <h3 id="s-regeln">Règles</h3>
 <figure><img src="img/11-regeln.png" alt="Page Règles avec testeur d'ACL" loading="lazy" width="1280" height="820"><figcaption>Testeur d'ACL, accès par défaut et groupe des clients anonymes.</figcaption></figure>
@@ -487,7 +508,7 @@ s'il se connecte, à quoi il s'abonne et si le broker refuse quelque chose.</p><
 <ul>
   <li>Connexions vers d'autres brokers, avec les topics par sens (<code>in</code>, <code>out</code>, <code>both</code>), préfixes, état et avertissements en cas de boucle.</li>
   <li><strong>Connecter un Victron GX</strong> configure un pont en une étape, en lecture seule ou dans les deux sens&nbsp;; à partir de Venus OS 3.80, via l'appairage
-    (<em>Settings → Integrations → MQTT Devices</em>, 120 secondes).</li>
+    (<em>Settings → Integrations → MQTT Devices</em>, 120 secondes). L'adresse peut être un nom, une IPv4 ou une IPv6 (avec ou sans crochets).</li>
   <li>L'UI maintient le GX éveillé (keepalive toutes les 30 secondes). Si l'UI ne tourne pas, les valeurs cessent d'arriver au bout d'une minute.</li>
   <li>Désactiver un pont le garde dans le fichier, sans redémarrage.</li>
 </ul>
@@ -504,7 +525,7 @@ s'il se connecte, à quoi il s'abonne et si le broker refuse quelque chose.</p><
 <h3 id="s-backups">Sauvegardes</h3>
 <figure><img src="img/18-backups.png" alt="Sauvegardes avec tâche et destination" loading="lazy" width="1280" height="820"><figcaption>Une tâche nocturne vers une destination locale.</figcaption></figure>
 <ul>
-  <li><strong>Destinations&nbsp;:</strong> SFTP, FTP/FTPS, S3, un répertoire, e-mail. <strong>Tâches&nbsp;:</strong> quoi, où, quand (quotidien, hebdomadaire, mensuel, manuel), chiffré par mot de passe ou GPG.</li>
+  <li><strong>Destinations&nbsp;:</strong> SFTP, FTP/FTPS, S3 (point de terminaison aussi en adresse IPv6), un répertoire, e-mail. <strong>Tâches&nbsp;:</strong> quoi, où, quand (quotidien, hebdomadaire, mensuel, manuel), chiffré par mot de passe ou GPG.</li>
   <li>Parties&nbsp;: accès, configuration, ponts, certificats, messages retenus, journal, réglages de sauvegarde.</li>
   <li><strong>Restaurer</strong> depuis une destination ou un fichier téléversé&nbsp;; remplace les parties choisies et redémarre le broker. Les archives sont signées avec la clé secrète.</li>
   <li>Les sauvegardes chiffrées s'ouvrent aussi sans l'UI&nbsp;: <code>openssl enc -d -aes-256-cbc -pbkdf2 -iter 600000 -md sha256 -in FILE.zip.enc -out FILE.zip</code>.</li>
@@ -519,7 +540,7 @@ s'il se connecte, à quoi il s'abonne et si le broker refuse quelque chose.</p><
 <tr><td>Client manquant</td><td>un client habituellement connecté longtemps est absent depuis 15 minutes&nbsp;; exceptions par nom</td></tr>
 <tr><td>Certificat non renouvelé, Sauvegarde échouée</td><td>échec du renouvellement ou de la sauvegarde</td></tr>
 <tr><td>Règle de messages appliquée</td><td>une règle avec e-mail a rejeté des messages, au plus une fois par heure</td></tr>
-<tr><td>Erreur dans le journal</td><td>le broker a écrit une ligne de niveau erreur, au plus un e-mail par heure</td></tr>
+<tr><td>Erreur dans le journal</td><td>le broker a écrit une ligne de niveau erreur, au plus un e-mail par heure&nbsp;; les poignées de main TLS échouées d'autres clients (scanners, TLS obsolète) ne comptent pas</td></tr>
 <tr><td>Nombreuses connexions refusées</td><td>10 en 10 minutes, avec ID client et adresses</td></tr>
 </table>
 <p>Après une panne, un second e-mail suit dès que tout fonctionne à nouveau. Si tout le serveur tombe, l'UI ne peut rien envoyer&nbsp;: pour cela,
@@ -601,6 +622,7 @@ s'ajouter à l'écran d'accueil comme une application.</p>
 <tr><td>Aucun utilisateur broker après le premier démarrage</td><td>Mot de passe de moins de 12 caractères. Videz le volume de données et redémarrez avec un mot de passe plus long.</td></tr>
 <tr><td>La connexion tourne en boucle</td><td>Le proxy ne définit pas <code>X-Forwarded-Proto</code> ou n'est pas déclaré comme fiable.</td></tr>
 <tr><td>Topics ou Logs ne se mettent pas à jour en direct</td><td>Le proxy met en tampon&nbsp;: avec nginx, <code>proxy_buffering off</code>.</td></tr>
+<tr><td>Beaucoup de reconnexions, <code>disconnected: administrative action</code> dans le log</td><td>Des droits ont été modifiés, voir <a href="#trennen">Quand les clients sont déconnectés</a>. Avec <code>plugin_opt_kick always</code>, chaque modification déconnecte&nbsp;; un rôle que tous les appareils ont les touche tous.</td></tr>
 <tr><td>Sans Docker&nbsp;: port 1883 occupé</td><td>Le Mosquitto de la distribution tourne&nbsp;: <code>sudo systemctl disable --now mosquitto</code>.</td></tr>
 </table>
 <p>Logs&nbsp;: <code>docker compose logs mosquitto mosquitto-ui</code> ou <code>journalctl -u mosquitto-ui-broker -u mosquitto-ui</code>.</p>

@@ -126,7 +126,7 @@ main { padding: 40px 48px 120px; min-width: 0; max-width: 900px; }
       <ol><li><a href="#voraussetzungen">Requirements</a></li><li><a href="#docker">With Docker Compose</a></li><li><a href="#ohne-docker">Without Docker (systemd)</a></li>
       <li><a href="#anmeldung">Login</a></li><li><a href="#https">HTTPS and reverse proxy</a></li><li><a href="#erste-schritte">First steps</a></li></ol></li>
     <li><a href="#konzepte">Concepts</a>
-      <ol><li><a href="#rechte">Clients, groups, roles</a></li><li><a href="#reihenfolge">How the broker decides</a></li><li><a href="#konfig-dateien">Where the configuration lives</a></li></ol></li>
+      <ol><li><a href="#rechte">Clients, groups, roles</a></li><li><a href="#reihenfolge">How the broker decides</a></li><li><a href="#trennen">When clients get disconnected</a></li><li><a href="#konfig-dateien">Where the configuration lives</a></li></ol></li>
     <li><a href="#seiten">The pages</a>
       <ol><li><a href="#s-dashboard">Dashboard</a></li><li><a href="#s-topics">Topics</a></li><li><a href="#s-sitzungen">Sessions</a></li><li><a href="#s-aufzeichnung">Trace</a></li>
       <li><a href="#s-logs">Logs</a></li><li><a href="#s-clients">Clients</a></li><li><a href="#s-gruppen">Groups and Roles</a></li><li><a href="#s-regeln">Rules</a></li>
@@ -366,6 +366,19 @@ changes, so it cannot lock itself out.</p></div>
 </ol>
 <p>The access check on the <a href="#s-regeln">Rules</a> page works out exactly this and names the rule that decides.</p>
 
+<h3 id="trennen">When clients get disconnected</h3>
+<p>When the rights of a client change, <em>Dynamic Security</em> disconnects it so that the broker checks its subscriptions again (in the log
+<code>disconnected: administrative action</code>; most devices reconnect at once). The broker checks publishing and receiving on every
+message, subscribing only once. So the plugin in the broker of the UI only disconnects when a change can take a subscription away:</p>
+<table>
+<tr><th>Disconnects</th><th>Applies without disconnecting</th></tr>
+<tr><td>a new rule forbidding to subscribe; removing a rule that allows it; wildcard subscriptions switched off; a role that allows subscribing
+leaving a client or group (or one that forbids it arriving); a new password, client ID or group membership; <em>Disconnect</em></td>
+<td>names and descriptions, all rules for publishing and receiving, new permissions, wildcard subscriptions switched on, the default access</td></tr>
+</table>
+<p>Before saving, the dialogs say how many connected clients a change disconnects. With <code>plugin_opt_kick always</code> in
+<code>mosquitto.conf</code> the plugin disconnects on every change, as Mosquitto itself does; without the line, <code>minimal</code> applies.</p>
+
 <h3 id="konfig-dateien">Where the configuration lives</h3>
 <ul>
   <li><code>mosquitto.conf</code> is yours (fixed in the image; without Docker <code>/etc/mosquitto-ui/mosquitto.conf</code>). It loads the plugins and,
@@ -432,6 +445,7 @@ whether it connects, what it subscribes to and whether the broker refuses anythi
   <li>Create with password, roles and groups; switch between enabled and disabled (disabled: cannot log in).</li>
   <li>Per row: edit, change password, <em>Disconnect</em> (all connections of this login; most devices come straight back), log, delete.</li>
   <li>The UI tracks <em>Last connected</em> with the address itself; it checks every 15 seconds.</li>
+  <li>New roles or groups disconnect the client if it is connected; the dialog says so beforehand. Name and description leave the connection alone, and saving without a change sends nothing to the broker.</li>
   <li>Below, a separate table for clients that came with an access token.</li>
 </ul>
 <figure><img src="img/08-client-bearbeiten.png" alt="Edit client dialog" loading="lazy" width="1280" height="820"><figcaption>Roles and groups of a client.</figcaption></figure>
@@ -439,10 +453,16 @@ whether it connects, what it subscribes to and whether the broker refuses anythi
 <h3 id="s-gruppen">Groups and Roles</h3>
 <figure><img src="img/10-rollen.png" alt="Roles with their rules" loading="lazy" width="1280" height="820"><figcaption>Roles with their rules. Roles with a lock belong to the UI.</figcaption></figure>
 <ul>
-  <li><strong>Roles:</strong> add rules (type, topic, priority, allow/deny), allow wildcard subscriptions.</li>
-  <li><strong>Groups:</strong> roles and members. The group for anonymous clients is marked.</li>
+  <li><strong>Roles:</strong> add rules (type, topic, priority, allow/deny), allow wildcard subscriptions. <em>Publish and subscribe</em>
+    adds the rules to publish, receive and subscribe on a topic at once (as a pattern for <code>+</code>/<code>#</code>) and skips what the role already has.</li>
+  <li><strong>New role without wildcard subscriptions:</strong> under <em>Grant topics</em>, enter the topics right away and check what is allowed
+    (subscribe, receive, publish). Role and rules are created in one step; further rules later in the table.</li>
+  <li>Above the rules of a role it says how many connected clients a change disconnects, see <a href="#trennen">When clients get disconnected</a>.</li>
+  <li><strong>Groups:</strong> roles and members. The group for anonymous clients is marked. Members that join or leave disconnect only themselves.</li>
 </ul>
 <figure><img src="img/09-gruppen.png" alt="Groups" loading="lazy" width="1280" height="820"><figcaption>Groups with their roles and members.</figcaption></figure>
+<figure><img src="img/26-new-role.png" alt="New role dialog with granted topics" loading="lazy" width="1280" height="820"><figcaption>A new role without wildcard subscriptions may subscribe and publish on two topics right away.</figcaption></figure>
+<figure><img src="img/27-role-rules.png" alt="Rules of a role with Publish and subscribe and the note on disconnects" loading="lazy" width="1280" height="820"><figcaption>The rules of a role; at the top, whom a change disconnects.</figcaption></figure>
 
 <h3 id="s-regeln">Rules</h3>
 <figure><img src="img/11-regeln.png" alt="Rules page with the access check" loading="lazy" width="1280" height="820"><figcaption>Access check, default access and the group for clients without a login.</figcaption></figure>
@@ -486,7 +506,7 @@ whether it connects, what it subscribes to and whether the broker refuses anythi
 <ul>
   <li>Connections to other brokers, with topics per direction (<code>in</code>, <code>out</code>, <code>both</code>), prefixes, state and warnings about loops.</li>
   <li><strong>Connect Victron GX</strong> sets up a bridge in one step, read-only or both ways. With Venus OS 3.80 or later it uses pairing
-    (<em>Settings → Integrations → MQTT Devices</em>, 120 seconds).</li>
+    (<em>Settings → Integrations → MQTT Devices</em>, 120 seconds). The address may be a name, IPv4 or IPv6 (with or without brackets).</li>
   <li>The UI keeps the GX awake (keepalive every 30 seconds). If the UI is not running, values stop after one minute.</li>
   <li>Turning a bridge off keeps it in the file, without a restart.</li>
 </ul>
@@ -503,7 +523,7 @@ whether it connects, what it subscribes to and whether the broker refuses anythi
 <h3 id="s-backups">Backups</h3>
 <figure><img src="img/18-backups.png" alt="Backups with a job and a target" loading="lazy" width="1280" height="820"><figcaption>A nightly job to a local target.</figcaption></figure>
 <ul>
-  <li><strong>Targets:</strong> SFTP, FTP/FTPS, S3, a directory, e-mail. <strong>Jobs:</strong> what, where, when (daily, weekly, monthly, by hand), encrypted with a password or GPG.</li>
+  <li><strong>Targets:</strong> SFTP, FTP/FTPS, S3 (the endpoint may be an IPv6 address), a directory, e-mail. <strong>Jobs:</strong> what, where, when (daily, weekly, monthly, by hand), encrypted with a password or GPG.</li>
   <li>Parts: access, configuration, bridges, certificates, retained messages, audit log, backup settings.</li>
   <li><strong>Restore</strong> from a target or an uploaded file. It replaces the selected parts and restarts the broker. Archives are signed with the secret key.</li>
   <li>Encrypted backups can be opened without the UI too: <code>openssl enc -d -aes-256-cbc -pbkdf2 -iter 600000 -md sha256 -in FILE.zip.enc -out FILE.zip</code>.</li>
@@ -518,7 +538,7 @@ whether it connects, what it subscribes to and whether the broker refuses anythi
 <tr><td>Client missing</td><td>a client that is usually connected for long has been gone for 15 minutes; exceptions by name</td></tr>
 <tr><td>Certificate not renewed, Backup failed</td><td>a renewal or a backup failed</td></tr>
 <tr><td>Message rule refused messages</td><td>a rule with mail dropped messages; at most once an hour</td></tr>
-<tr><td>Error in the log</td><td>the broker wrote a line of level Error; at most one mail an hour</td></tr>
+<tr><td>Error in the log</td><td>the broker wrote a line of level Error; at most one mail an hour. Failed TLS handshakes of other clients (scanners, outdated TLS) do not count</td></tr>
 <tr><td>Many rejected logins</td><td>10 in 10 minutes, with client IDs and addresses</td></tr>
 </table>
 <p>After an outage, a second mail follows once everything works again. If the whole server goes down, the UI cannot send anything. For that case,
@@ -600,6 +620,7 @@ add the UI to the home screen as an app.</p>
 <tr><td>No broker user after the first start</td><td>Password shorter than 12 characters. Empty the data volume and start again with a longer password.</td></tr>
 <tr><td>Login redirects in a loop</td><td>The proxy does not set <code>X-Forwarded-Proto</code> or is not configured as trusted.</td></tr>
 <tr><td>Topics or Logs are not live</td><td>The proxy buffers: for nginx, <code>proxy_buffering off</code>.</td></tr>
+<tr><td>Many reconnects, <code>disconnected: administrative action</code> in the log</td><td>Rights were changed, see <a href="#trennen">When clients get disconnected</a>. With <code>plugin_opt_kick always</code> every change disconnects; a role all devices have hits them all.</td></tr>
 <tr><td>Without Docker: port 1883 in use</td><td>The distribution's Mosquitto is running: <code>sudo systemctl disable --now mosquitto</code>.</td></tr>
 </table>
 <p>Logs: <code>docker compose logs mosquitto mosquitto-ui</code> or <code>journalctl -u mosquitto-ui-broker -u mosquitto-ui</code>.</p>

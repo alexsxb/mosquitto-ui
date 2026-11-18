@@ -390,7 +390,8 @@ function AclDialog({ role, onClose }: { role: Role; onClose: () => void }) {
           </div>
         )}
         {!role.locked && (
-          <form onSubmit={submit} className="grid items-end gap-3 sm:grid-cols-[1fr_1fr_5rem_auto]">
+          <form onSubmit={submit} className="grid items-end gap-3 sm:grid-cols-[minmax(0,15rem)_minmax(0,1fr)]">
+            {/* action and topic side by side, the rest below: "Publish and subscribe" is too long for four columns */}
             <Field>
               <FieldLabel>{t("roles.aclType")}</FieldLabel>
               <Select value={acltype} onValueChange={setAcltype}>
@@ -411,11 +412,11 @@ function AclDialog({ role, onClose }: { role: Role; onClose: () => void }) {
               <FieldLabel htmlFor="acl-topic">{t("roles.topic")}</FieldLabel>
               <Input id="acl-topic" required className="font-mono" placeholder="sensors/+/state" value={topic} onChange={(e) => setTopic(e.target.value)} />
             </Field>
-            <Field>
-              <FieldLabel htmlFor="acl-priority">{t("roles.priority")}</FieldLabel>
-              <Input id="acl-priority" type="number" value={priority} onChange={(e) => setPriority(Number(e.target.value))} />
-            </Field>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-end gap-2 sm:col-span-2">
+              <Field className="w-24">
+                <FieldLabel htmlFor="acl-priority">{t("roles.priority")}</FieldLabel>
+                <Input id="acl-priority" type="number" value={priority} onChange={(e) => setPriority(Number(e.target.value))} />
+              </Field>
               <Select value={allow ? "allow" : "deny"} onValueChange={(effect) => setAllow(effect === "allow")}>
                 <SelectTrigger aria-label={t("roles.effect")} className="w-32">
                   <SelectValue />
@@ -425,7 +426,7 @@ function AclDialog({ role, onClose }: { role: Role; onClose: () => void }) {
                   <SelectItem value="deny">{t("roles.deny")}</SelectItem>
                 </SelectContent>
               </Select>
-              <Button type="submit" disabled={add.isPending}>
+              <Button type="submit" className="ml-auto" disabled={add.isPending}>
                 {add.isPending ? <Spinner /> : <PlusIcon />}
                 {t("common.add")}
               </Button>
