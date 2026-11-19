@@ -226,6 +226,17 @@ function RoleDialog({ role, onClose }: { role: Role | null; onClose: () => void 
   const acls = !granting ? [] : topicMode === "text" ? textAcls : listAcls
   const invalid = granting && (topicMode === "text" ? parsed.errors.length > 0 : topics.length > 0 && grants.length === 0)
 
+  const [discarding, setDiscarding] = useState(false)
+
+  /** Closing a new role loses a text of rules not yet saved, so it asks first; the list is quick to type again. */
+  function requestClose() {
+    if (granting && text.trim() !== "") {
+      setDiscarding(true)
+    } else {
+      onClose()
+    }
+  }
+
   function switchTopicMode(mode: "list" | "text") {
     // the list goes along into an empty text; back from the text, the list is as it was
     if (mode === "text" && text.trim() === "" && listAcls.length > 0) {
@@ -253,104 +264,114 @@ function RoleDialog({ role, onClose }: { role: Role | null; onClose: () => void 
   const saving = create.isPending || update.isPending
 
   return (
-    <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className={role ? undefined : "sm:max-w-xl"}>
-        <form onSubmit={submit} className="space-y-6">
-          <DialogHeader>
-            <DialogTitle>{role ? t("roles.editTitle", { name: role.rolename }) : t("roles.addTitle")}</DialogTitle>
-          </DialogHeader>
-          <FieldGroup>
-            {!role && (
+    <>
+      <Dialog open onOpenChange={(open) => !open && requestClose()}>
+        <DialogContent className={role ? undefined : "sm:max-w-xl"}>
+          <form onSubmit={submit} className="space-y-6">
+            <DialogHeader>
+              <DialogTitle>{role ? t("roles.editTitle", { name: role.rolename }) : t("roles.addTitle")}</DialogTitle>
+            </DialogHeader>
+            <FieldGroup>
+              {!role && (
+                <Field>
+                  <FieldLabel htmlFor="role-rolename">{t("roles.rolename")}</FieldLabel>
+                  <Input id="role-rolename" required autoComplete="off" pattern="[^\/]+" value={rolename} onChange={(e) => setRolename(e.target.value)} />
+                </Field>
+              )}
               <Field>
-                <FieldLabel htmlFor="role-rolename">{t("roles.rolename")}</FieldLabel>
-                <Input id="role-rolename" required autoComplete="off" pattern="[^\/]+" value={rolename} onChange={(e) => setRolename(e.target.value)} />
+                <FieldLabel htmlFor="role-textname">{t("common.name")}</FieldLabel>
+                <Input id="role-textname" value={textname} onChange={(e) => setTextname(e.target.value)} />
               </Field>
-            )}
-            <Field>
-              <FieldLabel htmlFor="role-textname">{t("common.name")}</FieldLabel>
-              <Input id="role-textname" value={textname} onChange={(e) => setTextname(e.target.value)} />
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="role-textdescription">{t("common.description")}</FieldLabel>
-              <Textarea id="role-textdescription" rows={2} value={textdescription} onChange={(e) => setTextdescription(e.target.value)} />
-            </Field>
-            <Field orientation="horizontal">
-              <Switch id="role-wildcards" checked={allowwildcardsubs} onCheckedChange={setAllowwildcardsubs} />
-              <FieldContent>
-                <FieldLabel htmlFor="role-wildcards">{t("roles.allowWildcards")}</FieldLabel>
-                <FieldDescription>{t("roles.allowWildcardsHint")}</FieldDescription>
-              </FieldContent>
-            </Field>
-            {granting && (
               <Field>
-                <div className="flex items-center justify-between gap-2">
-                  <FieldLabel htmlFor="role-topics">{t("roles.grantTopics")}</FieldLabel>
-                  <Tabs value={topicMode} onValueChange={(value) => switchTopicMode(value as "list" | "text")}>
-                    <TabsList>
-                      <TabsTrigger value="list">{t("roles.text.list")}</TabsTrigger>
-                      <TabsTrigger value="text">{t("roles.text.text")}</TabsTrigger>
-                    </TabsList>
-                  </Tabs>
-                </div>
-                {topicMode === "list" ? (
-                  <>
-                    <ChipsInput id="role-topics" className="font-mono" placeholder="home/livingroom/temperature" value={topics} onChange={setTopics} />
-                    <div className="flex flex-wrap gap-x-4 gap-y-2">
-                      {grantTypes.map((type) => (
-                        <Field key={type} orientation="horizontal" className="w-auto">
-                          <Checkbox
-                            id={`role-grant-${type}`}
-                            checked={grants.includes(type)}
-                            onCheckedChange={(checked) => setGrants((current) => (checked === true ? [...current, type] : current.filter((g) => g !== type)))}
-                          />
-                          <FieldLabel htmlFor={`role-grant-${type}`} className="font-normal">
-                            {t(`roles.text.defaultActions.${type}`)}
-                          </FieldLabel>
-                        </Field>
-                      ))}
-                    </div>
-                    <FieldDescription>{t("roles.grantTopicsHint")}</FieldDescription>
-                  </>
-                ) : (
-                  <>
-                    <Textarea
-                      id="role-topics"
-                      className="max-h-[40vh] min-h-40 font-mono text-xs"
-                      spellCheck={false}
-                      autoCapitalize="off"
-                      autoCorrect="off"
-                      placeholder={"home/livingroom/temperature\npub home/livingroom/light/set\nsub sensors/+/state"}
-                      value={text}
-                      onChange={(e) => setText(e.target.value)}
-                    />
-                    <FieldDescription>{t("roles.text.hint")}</FieldDescription>
-                    <AclTextErrors errors={parsed.errors} />
-                    <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-                      <DefaultActionSelect id="role-text-defaults" value={defaultAction} onChange={setDefaultAction} />
-                      {textAcls.length > 0 && <p className="text-sm text-muted-foreground">{t("roles.text.rules", { count: textAcls.length })}</p>}
-                    </div>
-                    <DiffList diff={diffAcls([], parsed.rules)} />
-                  </>
-                )}
+                <FieldLabel htmlFor="role-textdescription">{t("common.description")}</FieldLabel>
+                <Textarea id="role-textdescription" rows={2} value={textdescription} onChange={(e) => setTextdescription(e.target.value)} />
               </Field>
+              <Field orientation="horizontal">
+                <Switch id="role-wildcards" checked={allowwildcardsubs} onCheckedChange={setAllowwildcardsubs} />
+                <FieldContent>
+                  <FieldLabel htmlFor="role-wildcards">{t("roles.allowWildcards")}</FieldLabel>
+                  <FieldDescription>{t("roles.allowWildcardsHint")}</FieldDescription>
+                </FieldContent>
+              </Field>
+              {granting && (
+                <Field>
+                  <div className="flex items-center justify-between gap-2">
+                    <FieldLabel htmlFor="role-topics">{t("roles.grantTopics")}</FieldLabel>
+                    <Tabs value={topicMode} onValueChange={(value) => switchTopicMode(value as "list" | "text")}>
+                      <TabsList>
+                        <TabsTrigger value="list">{t("roles.text.list")}</TabsTrigger>
+                        <TabsTrigger value="text">{t("roles.text.text")}</TabsTrigger>
+                      </TabsList>
+                    </Tabs>
+                  </div>
+                  {topicMode === "list" ? (
+                    <>
+                      <ChipsInput id="role-topics" className="font-mono" placeholder="home/livingroom/temperature" value={topics} onChange={setTopics} />
+                      <div className="flex flex-wrap gap-x-4 gap-y-2">
+                        {grantTypes.map((type) => (
+                          <Field key={type} orientation="horizontal" className="w-auto">
+                            <Checkbox
+                              id={`role-grant-${type}`}
+                              checked={grants.includes(type)}
+                              onCheckedChange={(checked) => setGrants((current) => (checked === true ? [...current, type] : current.filter((g) => g !== type)))}
+                            />
+                            <FieldLabel htmlFor={`role-grant-${type}`} className="font-normal">
+                              {t(`roles.text.defaultActions.${type}`)}
+                            </FieldLabel>
+                          </Field>
+                        ))}
+                      </div>
+                      <FieldDescription>{t("roles.grantTopicsHint")}</FieldDescription>
+                    </>
+                  ) : (
+                    <>
+                      <Textarea
+                        id="role-topics"
+                        className="max-h-[40vh] min-h-40 font-mono text-xs"
+                        spellCheck={false}
+                        autoCapitalize="off"
+                        autoCorrect="off"
+                        placeholder={"home/livingroom/temperature\npub home/livingroom/light/set\nsub sensors/+/state"}
+                        value={text}
+                        onChange={(e) => setText(e.target.value)}
+                      />
+                      <FieldDescription>{t("roles.text.hint")}</FieldDescription>
+                      <AclTextErrors errors={parsed.errors} />
+                      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                        <DefaultActionSelect id="role-text-defaults" value={defaultAction} onChange={setDefaultAction} />
+                        {textAcls.length > 0 && <p className="text-sm text-muted-foreground">{t("roles.text.rules", { count: textAcls.length })}</p>}
+                      </div>
+                      <DiffList diff={diffAcls([], parsed.rules)} />
+                    </>
+                  )}
+                </Field>
+              )}
+            </FieldGroup>
+            {/* name and description alone disconnect nobody, switching wildcards does; with minimal only switching them off */}
+            {role && allowwildcardsubs !== role.allowwildcardsubs && (!kickMinimal || !allowwildcardsubs) && (
+              <DisconnectHint count={affected.connected} anonymous={affected.anonymous} />
             )}
-          </FieldGroup>
-          {/* name and description alone disconnect nobody, switching wildcards does; with minimal only switching them off */}
-          {role && allowwildcardsubs !== role.allowwildcardsubs && (!kickMinimal || !allowwildcardsubs) && (
-            <DisconnectHint count={affected.connected} anonymous={affected.anonymous} />
-          )}
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose}>
-              {t("common.cancel")}
-            </Button>
-            <Button type="submit" disabled={saving || invalid}>
-              {saving && <Spinner />}
-              {t("common.save")}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={requestClose}>
+                {t("common.cancel")}
+              </Button>
+              <Button type="submit" disabled={saving || invalid}>
+                {saving && <Spinner />}
+                {t("common.save")}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+      <ConfirmDialog
+        open={discarding}
+        onOpenChange={setDiscarding}
+        title={t("roles.text.discardTitle")}
+        description={t("roles.text.discardDesc")}
+        confirmLabel={t("roles.text.discard")}
+        onConfirm={onClose}
+      />
+    </>
   )
 }
 
