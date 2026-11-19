@@ -71,12 +71,13 @@ public class BrokerAgent {
     /**
      * plugin_opt_kick in the main file of the broker, which the agent copies to control/dynsec-kick. Without the file the
      * broker is older than the patch of docker/mosquitto/dynsec and disconnects on every change; without the line the patch
-     * takes minimal.
+     * takes minimal. "unpatched": the dynamic security plugin of the broker lacks the patch, as in a Mosquitto of its own,
+     * and disconnects on every change, whatever the option says.
      */
     public Kick dynsecKick() {
         try {
-            String line = Files.readString(control().resolve("dynsec-kick")).strip();
-            return line.toLowerCase(java.util.Locale.ROOT).endsWith("always") ? Kick.ALWAYS : Kick.MINIMAL;
+            String line = Files.readString(control().resolve("dynsec-kick")).strip().toLowerCase(java.util.Locale.ROOT);
+            return line.equals("unpatched") || line.endsWith("always") ? Kick.ALWAYS : Kick.MINIMAL;
         } catch (NoSuchFileException e) {
             return Kick.ALWAYS;
         } catch (IOException e) {

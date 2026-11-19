@@ -8,10 +8,14 @@ import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasItems;
 import static org.hamcrest.Matchers.nullValue;
 
+import com.dfc.mosquittoui.broker.TraceBatch;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.security.TestSecurity;
 import io.restassured.http.ContentType;
+import jakarta.enterprise.event.Event;
+import jakarta.inject.Inject;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
@@ -26,6 +30,10 @@ import org.junit.jupiter.api.Test;
 class InspectApiTest {
 
     private static final String PASSWORD = "inspect-device-password";
+
+    /** How the batches of the plugin reach InspectService. */
+    @Inject
+    Event<TraceBatch> batches;
 
     @BeforeEach
     void clients() {
@@ -116,6 +124,28 @@ class InspectApiTest {
         } finally {
             given().delete("/api/clients/inspect-wc");
             given().delete("/api/roles/inspect-no-wildcards");
+        }
+    }
+
+    /** An inspect plugin before 1.6.1 says neither the username nor that there is none: then no reason, rather than one for a client without a login. */
+    @Test
+    void noReasonWithoutKnowingWhoAsked() throws Exception {
+        String id = given().contentType(ContentType.JSON).body(Map.of("clientid", "inspect-who-*", "seconds", 60, "maxEvents", 100, "payloadBytes", 0))
+                .post("/api/inspect/traces").then().statusCode(200).extract().path("id");
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+            batches.fire(new TraceBatch(mapper.readTree("""
+                    {"id": "%s", "events": [
+                      {"at": 1, "type": "subscribeDenied", "clientid": "inspect-who-old", "topic": "a/#", "qos": 0},
+                      {"at": 2, "type": "subscribeDenied", "clientid": "inspect-who-anon", "topic": "a/#", "qos": 0, "anonymous": true}
+                    ]}""".formatted(id))));
+            given().get("/api/inspect/traces/" + id).then().statusCode(200)
+                    .body("events.find { it.clientid == 'inspect-who-old' }.denial", nullValue())
+                    .body("events.find { it.clientid == 'inspect-who-anon' }.anonymous", equalTo(true))
+                    .body("events.find { it.clientid == 'inspect-who-anon' }.denial.access", equalTo("subscribe"));
+        } finally {
+            given().post("/api/inspect/traces/" + id + "/stop");
+            given().delete("/api/inspect/traces/" + id);
         }
     }
 

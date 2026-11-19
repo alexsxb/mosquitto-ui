@@ -405,8 +405,11 @@ static void flush_pending(struct client *c)
 		cJSON *e = trace_event(c->pending_access == MOSQ_ACL_SUBSCRIBE ? "subscribeDenied" : "publishDenied", c->id);
 		if(e){
 			cJSON_AddStringToObject(e, "topic", c->pending_topic);
+			/* said either way, so that the UI can tell a client without a login from a plugin that did not say */
 			if(c->pending_username){
 				cJSON_AddStringToObject(e, "username", c->pending_username);
+			}else{
+				cJSON_AddBoolToObject(e, "anonymous", true);
 			}
 			cJSON_AddNumberToObject(e, "qos", c->pending_qos);
 			if(c->pending_access == MOSQ_ACL_WRITE){

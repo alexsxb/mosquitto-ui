@@ -2904,6 +2904,7 @@ export interface components {
             reasonText: string | null;
             rule: string | null;
             denial: components["schemas"]["AclDecision"] | null;
+            anonymous: boolean | null;
         };
         TraceInput: {
             clientid: string | null;

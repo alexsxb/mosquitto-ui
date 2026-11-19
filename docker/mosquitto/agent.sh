@@ -50,6 +50,24 @@ linked() {
     [ -L "$1" ]
 }
 
+# When dynamic security disconnects clients, for control/dynsec-kick: the line plugin_opt_kick of a main file (empty without
+# it, which means minimal), or "unpatched" when its dynamic security plugin lacks dynsec/kick-minimal.patch. That one
+# disconnects on every change and ignores the option. The patch is told by a text only it puts into the plugin.
+dynsec_kick() {
+    plugin=$(sed -nE 's/^[[:space:]]*(global_)?plugin[[:space:]]+([^[:space:]]*dynamic_security[^[:space:]]*).*/\2/p' "$1" | tail -1)
+    if [ -n "$plugin" ] && [ -f "$plugin" ] && ! grep -qF 'plugin_opt_kick must be minimal or always' "$plugin"; then
+        echo unpatched
+    else
+        { grep -E '^[[:space:]]*plugin_opt_kick[[:space:]]' "$1" || true; } | tail -1
+    fi
+}
+
+# For the tests: what control/dynsec-kick would say for a main file, without doing anything else
+if [ "${1:-}" = "--dynsec-kick" ]; then
+    dynsec_kick "$2"
+    exit 0
+fi
+
 chown -h root:root "$UI_DIR"
 chmod 755 "$UI_DIR"
 for dir in conf.d bridge-ca token-auth rules control backups; do
@@ -74,8 +92,7 @@ chown -h "$UI_UID" "$CONTROL" "$UI_DIR/backups"
 chmod 700 "$CONTROL" "$UI_DIR/backups"
 
 grep -E '^[[:space:]]*(listener|port|protocol|certfile|keyfile|cafile|max_connections)[[:space:]]' "$CONF" | new_file "$CONTROL/main-listeners"
-# When dynamic security disconnects clients (dynsec/kick-minimal.patch); empty without the line, which means minimal
-{ grep -E '^[[:space:]]*plugin_opt_kick[[:space:]]' "$CONF" || true; } | tail -1 | new_file "$CONTROL/dynsec-kick"
+dynsec_kick "$CONF" | new_file "$CONTROL/dynsec-kick"
 
 start_broker() {
     mosquitto -c "$CONF" &

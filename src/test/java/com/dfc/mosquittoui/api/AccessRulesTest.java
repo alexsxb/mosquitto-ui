@@ -511,6 +511,29 @@ class AccessRulesTest {
         return Map.of("acltype", acltype, "topic", topic, "priority", priority, "allow", allow);
     }
 
+    /**
+     * The agent tells whether the dynamic security plugin has kick-minimal.patch, by a text only the patch puts into it: the one of this image
+     * has it; a Mosquitto of its own (here a file without that text) disconnects on every change, so the UI must not assume minimal.
+     */
+    @Test
+    void theAgentTellsAPluginWithoutThePatch() throws Exception {
+        MosquittoResource.broker.execInContainer("sh", "-c", "printf 'no patch in here' > /tmp/mosquitto_dynamic_security.so"
+                + " && printf 'plugin /usr/lib/mosquitto_dynamic_security.so\\nplugin_opt_kick minimal\\n' > /tmp/patched.conf"
+                + " && printf 'plugin /tmp/mosquitto_dynamic_security.so\\nplugin_opt_kick minimal\\n' > /tmp/unpatched.conf"
+                + " && printf 'global_plugin /tmp/mosquitto_dynamic_security.so\\n' > /tmp/global.conf"
+                + " && printf 'plugin /usr/lib/mosquitto_dynamic_security.so\\nplugin_opt_kick always\\n' > /tmp/always.conf");
+        assertEquals("plugin_opt_kick minimal", agentKick("/tmp/patched.conf"));
+        assertEquals("unpatched", agentKick("/tmp/unpatched.conf"));
+        assertEquals("unpatched", agentKick("/tmp/global.conf"));
+        assertEquals("plugin_opt_kick always", agentKick("/tmp/always.conf"));
+    }
+
+    private static String agentKick(String conf) throws Exception {
+        var result = MosquittoResource.broker.execInContainer("sh", "/mosquitto/agent.sh", "--dynsec-kick", conf);
+        assertEquals(0, result.getExitCode(), result.getStderr());
+        return result.getStdout().strip();
+    }
+
     /** Saving a client sends its whole list of groups: their priorities, which the pages cannot set, must not get lost. */
     @Test
     void savingAClientKeepsThePrioritiesOfItsGroups() {

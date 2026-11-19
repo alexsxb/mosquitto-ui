@@ -71,18 +71,24 @@ public class InspectService {
      * One event of a recording. type: connect, offline (the session stays), disconnect (the session ends), subscribe,
      * subscribeDenied, unsubscribe, publish (from the client), publishDenied, dropped (refused by the message rule rule, why in
      * reasonText), deliver (to the client). payload: base64, cut at payloadBytes of the recording (truncated). denial: for subscribeDenied,
-     * what the rules say now about that subscription (AclTester), worked out when the recording is read.
+     * what the rules say now about that subscription (AclTester), worked out when the recording is read. anonymous: true when the plugin
+     * says the client has no username; null when it did not say (an inspect plugin before 1.6.1), then there is no denial either.
      */
     public record TraceEvent(Instant at, String type, String clientid, @Schema(nullable = true) String username, @Schema(nullable = true) String address,
             @Schema(nullable = true) String protocol, @Schema(nullable = true) Integer keepalive, @Schema(nullable = true) Boolean cleanStart,
             @Schema(nullable = true) String transport, @Schema(nullable = true) String topic, @Schema(nullable = true) Integer qos,
             @Schema(nullable = true) Boolean retain, @Schema(nullable = true) Integer size, @Schema(nullable = true) String payload, boolean truncated,
             @Schema(nullable = true) Integer reason, @Schema(nullable = true) String reasonText, @Schema(nullable = true) String rule,
-            @Schema(nullable = true) AclDecision denial) {
+            @Schema(nullable = true) AclDecision denial, @Schema(nullable = true) Boolean anonymous) {
 
         TraceEvent withDenial(AclDecision denial) {
             return new TraceEvent(at, type, clientid, username, address, protocol, keepalive, cleanStart, transport, topic, qos, retain, size, payload,
-                    truncated, reason, reasonText, rule, denial);
+                    truncated, reason, reasonText, rule, denial, anonymous);
+        }
+
+        /** Whether the plugin said who asked: a username, or that there was none. */
+        boolean knowsWho() {
+            return username != null || Boolean.TRUE.equals(anonymous);
         }
     }
 
@@ -289,7 +295,8 @@ public class InspectService {
         Map<String, AclDecision> known = new HashMap<>();
         for (int i = 0; i < events.size(); i++) {
             TraceEvent event = events.get(i);
-            if (event.type().equals("subscribeDenied") && event.denial() == null && event.topic() != null) {
+            // without who asked, the tester would take the client for one without a login and could name a wrong reason
+            if (event.type().equals("subscribeDenied") && event.denial() == null && event.topic() != null && event.knowsWho()) {
                 AclDecision denial = known.computeIfAbsent(event.username() + "\u0000" + event.clientid() + "\u0000" + event.topic(), key -> denial(event));
                 if (denial != null) {
                     events.set(i, event.withDenial(denial));
@@ -344,7 +351,8 @@ public class InspectService {
                         e.has("cleanStart") ? e.get("cleanStart").asBoolean() : null, text(e.path("transport")), text(e.path("topic")),
                         e.has("qos") ? e.get("qos").asInt() : null, e.has("retain") ? e.get("retain").asBoolean() : null,
                         e.has("size") ? e.get("size").asInt() : null, text(e.path("payload")), e.path("truncated").asBoolean(),
-                        e.has("reason") ? e.get("reason").asInt() : null, text(e.path("reasonText")), text(e.path("rule")), null));
+                        e.has("reason") ? e.get("reason").asInt() : null, text(e.path("reasonText")), text(e.path("rule")), null,
+                        e.has("anonymous") ? e.get("anonymous").asBoolean() : null));
             }
             String end = text(batch.path("end"));
             boolean active = trace.active() && end == null;

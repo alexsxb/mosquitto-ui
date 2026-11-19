@@ -133,8 +133,9 @@ It adds the option `plugin_opt_kick`:
 - `always`: on every change, as Mosquitto itself.
 
 Changing the default access never disconnects anyone, with either value (as in Mosquitto). Before saving, the dialogs
-show how many connected clients a change disconnects, following the value the agent finds in `mosquitto.conf`. With the
-plugin of an unpatched Mosquitto the option has no effect; leave it out there.
+show how many connected clients a change disconnects, following the value the agent finds in `mosquitto.conf`. The plugin
+of an unpatched Mosquitto ignores the option and disconnects on every change; the agent tells such a plugin by a text only
+the patch puts into it, and the dialogs then count every change, whatever the option says.
 
 ## TLS certificate
 

@@ -381,6 +381,7 @@ leaving a client or group or getting another priority there (or one that forbids
 </table>
 <p>Before saving, the dialogs say how many connected clients a change disconnects. With <code>plugin_opt_kick always</code> in
 <code>mosquitto.conf</code> the plugin disconnects on every change, as Mosquitto itself does; without the line, <code>minimal</code> applies.
+With a Mosquitto without this patch, the UI notices it by itself and counts as for <code>always</code>.
 Applying the rules of a role as text changes all of them at once; even then, only what the left column lists disconnects.</p>
 
 <h3 id="konfig-dateien">Where the configuration lives</h3>
