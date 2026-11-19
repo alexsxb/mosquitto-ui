@@ -1,6 +1,9 @@
 package com.dfc.mosquittoui.inspect;
 
+import com.dfc.mosquittoui.api.Dtos.AclDecision;
+import com.dfc.mosquittoui.api.Dtos.AclTest;
 import com.dfc.mosquittoui.backup.BackupException;
+import com.dfc.mosquittoui.broker.AclTester;
 import com.dfc.mosquittoui.broker.BrokerUnavailableException;
 import com.dfc.mosquittoui.broker.DynsecClient;
 import com.dfc.mosquittoui.broker.TraceBatch;
@@ -15,6 +18,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -66,13 +70,20 @@ public class InspectService {
     /**
      * One event of a recording. type: connect, offline (the session stays), disconnect (the session ends), subscribe,
      * subscribeDenied, unsubscribe, publish (from the client), publishDenied, dropped (refused by the message rule rule, why in
-     * reasonText), deliver (to the client). payload: base64, cut at payloadBytes of the recording (truncated).
+     * reasonText), deliver (to the client). payload: base64, cut at payloadBytes of the recording (truncated). denial: for subscribeDenied,
+     * what the rules say now about that subscription (AclTester), worked out when the recording is read.
      */
     public record TraceEvent(Instant at, String type, String clientid, @Schema(nullable = true) String username, @Schema(nullable = true) String address,
             @Schema(nullable = true) String protocol, @Schema(nullable = true) Integer keepalive, @Schema(nullable = true) Boolean cleanStart,
             @Schema(nullable = true) String transport, @Schema(nullable = true) String topic, @Schema(nullable = true) Integer qos,
             @Schema(nullable = true) Boolean retain, @Schema(nullable = true) Integer size, @Schema(nullable = true) String payload, boolean truncated,
-            @Schema(nullable = true) Integer reason, @Schema(nullable = true) String reasonText, @Schema(nullable = true) String rule) {
+            @Schema(nullable = true) Integer reason, @Schema(nullable = true) String reasonText, @Schema(nullable = true) String rule,
+            @Schema(nullable = true) AclDecision denial) {
+
+        TraceEvent withDenial(AclDecision denial) {
+            return new TraceEvent(at, type, clientid, username, address, protocol, keepalive, cleanStart, transport, topic, qos, retain, size, payload,
+                    truncated, reason, reasonText, rule, denial);
+        }
     }
 
     /** A recording with its events from after on, and how many it has in all. */
@@ -87,6 +98,9 @@ public class InspectService {
     static final int KEPT = 5;
     /** After its end time, so long until a recording without end from the broker counts as lost */
     private static final Duration GRACE = Duration.ofSeconds(15);
+
+    @Inject
+    AclTester aclTester;
 
     @Inject
     DynsecClient broker;
@@ -264,7 +278,47 @@ public class InspectService {
     }
 
     /** A recording with its events from index after on. */
-    public synchronized TraceView view(String id, int after) {
+    /**
+     * The events from after on. A refused subscription gets its reason from the ACL tester here, not as it comes in: that asks the
+     * plugin, which must not wait on the thread that delivers its answers. Once worked out, the reason stays with the event.
+     */
+    public TraceView view(String id, int after) {
+        TraceView view = snapshot(id, after);
+        int from = view.total() - view.events().size();
+        List<TraceEvent> events = new ArrayList<>(view.events());
+        Map<String, AclDecision> known = new HashMap<>();
+        for (int i = 0; i < events.size(); i++) {
+            TraceEvent event = events.get(i);
+            if (event.type().equals("subscribeDenied") && event.denial() == null && event.topic() != null) {
+                AclDecision denial = known.computeIfAbsent(event.username() + "\u0000" + event.clientid() + "\u0000" + event.topic(), key -> denial(event));
+                if (denial != null) {
+                    events.set(i, event.withDenial(denial));
+                    remember(id, from + i, event, events.get(i));
+                }
+            }
+        }
+        return new TraceView(view.trace(), List.copyOf(events), view.total());
+    }
+
+    /** What the rules say now about a subscription the broker refused, null if the tester cannot tell. */
+    private AclDecision denial(TraceEvent event) {
+        try {
+            return aclTester.test(new AclTest(event.username(), event.clientid(), event.topic())).decisions().stream()
+                    .filter(decision -> decision.access().equals("subscribe")).findFirst().orElse(null);
+        } catch (RuntimeException e) {
+            LOG.debugf("No reason for the refused subscription of %s: %s", event.clientid(), e.getMessage());
+            return null;
+        }
+    }
+
+    private synchronized void remember(String id, int index, TraceEvent was, TraceEvent now) {
+        List<TraceEvent> list = events.get(id);
+        if (list != null && index < list.size() && list.get(index) == was) {
+            list.set(index, now);
+        }
+    }
+
+    private synchronized TraceView snapshot(String id, int after) {
         Trace trace = trace(id);
         List<TraceEvent> all = events.getOrDefault(id, List.of());
         int from = Math.clamp(after, 0, all.size());
@@ -290,7 +344,7 @@ public class InspectService {
                         e.has("cleanStart") ? e.get("cleanStart").asBoolean() : null, text(e.path("transport")), text(e.path("topic")),
                         e.has("qos") ? e.get("qos").asInt() : null, e.has("retain") ? e.get("retain").asBoolean() : null,
                         e.has("size") ? e.get("size").asInt() : null, text(e.path("payload")), e.path("truncated").asBoolean(),
-                        e.has("reason") ? e.get("reason").asInt() : null, text(e.path("reasonText")), text(e.path("rule"))));
+                        e.has("reason") ? e.get("reason").asInt() : null, text(e.path("reasonText")), text(e.path("rule")), null));
             }
             String end = text(batch.path("end"));
             boolean active = trace.active() && end == null;

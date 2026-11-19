@@ -6,7 +6,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 const SHOWN = 2
 
 /** The first names and "+3" for the others, so that a long list does not make its row high. */
-export function BadgeList({ names }: { names: string[] }) {
+export function BadgeList({ names, suffix }: { names: string[]; suffix?: (name: string) => string | undefined }) {
   const { t } = useTranslation()
   if (names.length === 0) {
     return <span className="text-muted-foreground">{t("common.none")}</span>
@@ -15,8 +15,8 @@ export function BadgeList({ names }: { names: string[] }) {
   return (
     <div className="flex items-center gap-1">
       {names.slice(0, SHOWN).map((name) => (
-        <Badge key={name} variant="secondary" className="max-w-40 truncate" title={name}>
-          {name}
+        <Badge key={name} variant="secondary" className="max-w-40 truncate" title={name + (suffix?.(name) ?? "")}>
+          {name + (suffix?.(name) ?? "")}
         </Badge>
       ))}
       {rest.length > 0 && (
@@ -29,7 +29,7 @@ export function BadgeList({ names }: { names: string[] }) {
           <PopoverContent className="flex max-h-64 w-72 flex-wrap gap-1 overflow-y-auto">
             {names.map((name) => (
               <Badge key={name} variant="secondary">
-                {name}
+                {name + (suffix?.(name) ?? "")}
               </Badge>
             ))}
           </PopoverContent>

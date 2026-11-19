@@ -65,15 +65,20 @@ public final class Dtos {
     }
 
     /** locked: this application needs it to reach the broker, it cannot be changed here. lastLogin: null if none was seen. */
+    /** roles in the order the broker checks them, highest priority first; rolePriorities: the priority of each. */
     public record ClientView(String username, String textname, String textdescription, boolean disabled, List<String> roles,
-            List<String> groups, List<String> connections, boolean locked, ClientLogin lastLogin) {
+            Map<String, Integer> rolePriorities, List<String> groups, List<String> connections, boolean locked, ClientLogin lastLogin) {
     }
 
+    /** rolePriorities: by role; a role without one gets 0. */
     public record ClientCreate(@NotBlank @Pattern(regexp = NAME) String username, @NotBlank String password, String textname,
-            String textdescription, @NotNull List<String> roles, @NotNull List<String> groups) {
+            String textdescription, @NotNull List<String> roles, @NotNull List<String> groups,
+            @Schema(nullable = true) Map<String, Integer> rolePriorities) {
     }
 
-    public record ClientUpdate(String textname, String textdescription, @NotNull List<String> roles, @NotNull List<String> groups) {
+    /** rolePriorities: by role; a role without one keeps the priority it has, a new one gets 0. */
+    public record ClientUpdate(String textname, String textdescription, @NotNull List<String> roles, @NotNull List<String> groups,
+            @Schema(nullable = true) Map<String, Integer> rolePriorities) {
     }
 
     public record PasswordChange(@NotBlank String password) {
@@ -83,17 +88,20 @@ public final class Dtos {
     }
 
     /** anonymous: clients without a login get the roles of this group; the plugin does not delete it. */
-    public record GroupView(String groupname, String textname, String textdescription, List<String> roles, List<String> clients,
-            boolean locked, boolean anonymous) {
+    /** roles in the order the broker checks them, highest priority first; rolePriorities: the priority of each. */
+    public record GroupView(String groupname, String textname, String textdescription, List<String> roles, Map<String, Integer> rolePriorities,
+            List<String> clients, boolean locked, boolean anonymous) {
     }
 
     /** clients: the members; null leaves them as they are. */
     public record GroupCreate(@NotBlank @Pattern(regexp = NAME) String groupname, String textname, String textdescription,
-            @NotNull List<String> roles, @Schema(nullable = true) List<String> clients) {
+            @NotNull List<String> roles, @Schema(nullable = true) List<String> clients, @Schema(nullable = true) Map<String, Integer> rolePriorities) {
     }
 
     /** clients: the members; null leaves them as they are. */
-    public record GroupUpdate(String textname, String textdescription, @NotNull List<String> roles, @Schema(nullable = true) List<String> clients) {
+    /** rolePriorities: by role; a role without one keeps the priority it has, a new one gets 0. */
+    public record GroupUpdate(String textname, String textdescription, @NotNull List<String> roles, @Schema(nullable = true) List<String> clients,
+            @Schema(nullable = true) Map<String, Integer> rolePriorities) {
     }
 
     public record RoleView(String rolename, String textname, String textdescription, boolean allowwildcardsubs, List<Acl> acls,
@@ -203,7 +211,15 @@ public final class Dtos {
     }
 
     /** disabled: the broker refuses this client anyway. */
-    public record AclTestResult(boolean disabled, List<AclDecision> decisions) {
+    /**
+     * The roles of a client in the order the broker checks them: its own by their priority, then those of each group by the priority of the
+     * group (null for the group of anonymous clients) and of the role. -1 is the priority the plugin gives where none was set.
+     */
+    public record AclSource(@Schema(nullable = true) String group, @Schema(nullable = true) Integer groupPriority, String role, int priority,
+            boolean wildcards) {
+    }
+
+    public record AclTestResult(boolean disabled, List<AclDecision> decisions, List<AclSource> sources) {
     }
 
     /**

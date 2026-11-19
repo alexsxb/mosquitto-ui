@@ -19,6 +19,7 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Spinner } from "@/components/ui/spinner"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { useAclReason } from "@/lib/acl-reason"
 import { useErrorToast } from "@/lib/errors"
 import { formatDateTime } from "@/lib/format"
 import { useTable } from "@/lib/use-table"
@@ -404,6 +405,7 @@ function TraceCard({ trace }: { trace: Trace }) {
 
 function EventRow({ event: e }: { event: TraceEvent }) {
   const { t, i18n } = useTranslation()
+  const reason = useAclReason()
   const payload = showPayload(e.payload)
   const type = isType(e.type) ? e.type : null
   return (
@@ -434,6 +436,8 @@ function EventRow({ event: e }: { event: TraceEvent }) {
             e.keepalive != null && t("sessions.keepalive", { seconds: e.keepalive }),
             e.cleanStart === false && t("sessions.persistent"),
             e.reasonText,
+            // the broker only says no; why comes from the rules as they are now
+            e.denial?.allowed === false && t("trace.denial", { reason: reason(e.denial) }),
           ]
             .filter(Boolean)
             .join(" · ")}

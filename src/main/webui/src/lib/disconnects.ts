@@ -1,4 +1,5 @@
 import { $api } from "@/api/client"
+import { priorityOf } from "@/lib/role-priorities"
 
 /**
  * Dynamic security disconnects clients when their rights change, so that the broker checks their subscriptions again. With
@@ -35,11 +36,21 @@ function restrictsSubscribe(role: RoleRules) {
   return !role.allowwildcardsubs || role.acls.some((acl) => isSubscribe(acl.acltype) && !acl.allow)
 }
 
-/** Whether going from these roles to those can take a subscription away: a role that allowed one goes, one that forbids comes. */
-export function rolesChangeCanRevoke(before: readonly string[], after: readonly string[], roles: readonly RoleRules[] | undefined) {
+/**
+ * Whether going from these roles to those can take a subscription away: a role that allowed one goes, one that forbids comes. A role
+ * with another priority moves in the order of the checks, so it counts as both, as for kick-minimal.patch.
+ */
+export function rolesChangeCanRevoke(
+  before: readonly string[],
+  after: readonly string[],
+  roles: readonly RoleRules[] | undefined,
+  beforePriorities?: Record<string, number>,
+  afterPriorities?: Record<string, number>,
+) {
   const find = (name: string) => roles?.find((role) => role.rolename === name)
-  const gone = before.filter((name) => !after.includes(name))
-  const added = after.filter((name) => !before.includes(name))
+  const moved = after.filter((name) => before.includes(name) && priorityOf(beforePriorities, name) !== priorityOf(afterPriorities, name))
+  const gone = [...before.filter((name) => !after.includes(name)), ...moved]
+  const added = [...after.filter((name) => !before.includes(name)), ...moved]
   // a role the UI does not know (yet) counts as one that takes away
   return gone.some((name) => !find(name) || grantsSubscribe(find(name)!)) || added.some((name) => !find(name) || restrictsSubscribe(find(name)!))
 }

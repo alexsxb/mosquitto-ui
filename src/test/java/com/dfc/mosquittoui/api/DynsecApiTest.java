@@ -225,6 +225,42 @@ class DynsecApiTest {
     }
 
     @Test
+    void rolePriorities() {
+        for (String role : List.of("prio-a", "prio-b", "prio-c")) {
+            json().body(Map.of("rolename", role, "allowwildcardsubs", true)).post("/api/roles").then().statusCode(204);
+        }
+        json().body(Map.of("username", "prio-client", "password", "x", "roles", List.of("prio-a", "prio-b"), "groups", List.of(),
+                "rolePriorities", Map.of("prio-a", 5))).post("/api/clients").then().statusCode(204);
+        // without one, the default of the plugin; the order is the order of the checks
+        given().get("/api/clients/prio-client").then()
+                .body("rolePriorities.prio-a", equalTo(5)).body("rolePriorities.prio-b", equalTo(-1)).body("roles", contains("prio-a", "prio-b"));
+
+        // a new role without priorities in the request: those there stay
+        json().body(Map.of("roles", List.of("prio-a", "prio-b", "prio-c"), "groups", List.of())).put("/api/clients/prio-client").then().statusCode(204);
+        given().get("/api/clients/prio-client").then().body("rolePriorities.prio-a", equalTo(5)).body("rolePriorities.prio-c", equalTo(-1));
+
+        json().body(Map.of("roles", List.of("prio-a", "prio-b", "prio-c"), "groups", List.of(), "rolePriorities", Map.of("prio-c", 10)))
+                .put("/api/clients/prio-client").then().statusCode(204);
+        given().get("/api/clients/prio-client").then()
+                .body("roles", contains("prio-c", "prio-a", "prio-b")).body("rolePriorities.prio-a", equalTo(5)).body("rolePriorities.prio-c", equalTo(10));
+
+        // groups the same way
+        json().body(Map.of("groupname", "prio-group", "roles", List.of("prio-a"), "rolePriorities", Map.of("prio-a", 3))).post("/api/groups").then().statusCode(204);
+        json().body(Map.of("roles", List.of("prio-a", "prio-b"))).put("/api/groups/prio-group").then().statusCode(204);
+        given().get("/api/groups").then()
+                .body("find { it.groupname == 'prio-group' }.rolePriorities.prio-a", equalTo(3))
+                .body("find { it.groupname == 'prio-group' }.rolePriorities.prio-b", equalTo(-1));
+        json().body(Map.of("roles", List.of("prio-a", "prio-b"), "rolePriorities", Map.of("prio-b", 7))).put("/api/groups/prio-group").then().statusCode(204);
+        given().get("/api/groups").then().body("find { it.groupname == 'prio-group' }.roles", contains("prio-b", "prio-a"));
+
+        given().delete("/api/clients/prio-client").then().statusCode(204);
+        given().delete("/api/groups/prio-group").then().statusCode(204);
+        for (String role : List.of("prio-a", "prio-b", "prio-c")) {
+            given().delete("/api/roles/" + role).then().statusCode(204);
+        }
+    }
+
+    @Test
     void errorsOfTheBroker() {
         given().get("/api/clients/nobody").then().statusCode(404).body("code", equalTo("not_found"));
         json().body(Map.of("username", "dup", "password", "x", "roles", List.of("no-such-role"), "groups", List.of())).post("/api/clients").then()

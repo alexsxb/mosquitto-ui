@@ -9,6 +9,7 @@ import { ConfirmDialog } from "@/components/confirm-dialog"
 import { DisconnectHint } from "@/components/disconnect-hint"
 import { BadgeList } from "@/components/badge-list"
 import { MultiSelect } from "@/components/multi-select"
+import { RolePriorities } from "@/components/role-priorities"
 import { PageToolbar } from "@/components/page-toolbar"
 import { SortableHead } from "@/components/sortable-head"
 import { TablePagination } from "@/components/table-pagination"
@@ -21,7 +22,8 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Spinner } from "@/components/ui/spinner"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Textarea } from "@/components/ui/textarea"
-import { connectedAmong, rolesChangeCanRevoke, sameNames, useKickMinimal } from "@/lib/disconnects"
+import { connectedAmong, rolesChangeCanRevoke, useKickMinimal } from "@/lib/disconnects"
+import { chosenPriorities, prioritySuffix, rolesDiffer } from "@/lib/role-priorities"
 import { useErrorToast } from "@/lib/errors"
 import { useTable } from "@/lib/use-table"
 
@@ -119,7 +121,7 @@ export function GroupsPage() {
                     {group.textname && <span className="ml-2 font-normal text-muted-foreground">{group.textname}</span>}
                   </TableCell>
                   <TableCell>
-                    <BadgeList names={group.roles} />
+                    <BadgeList names={group.roles} suffix={(role) => prioritySuffix(group.rolePriorities, role)} />
                   </TableCell>
                   <TableCell className="hidden md:table-cell" title={group.clients.join(", ")}>
                     {group.clients.length}
@@ -174,6 +176,7 @@ function GroupDialog({ group, onClose }: { group: Group | null; onClose: () => v
   const [textname, setTextname] = useState(group?.textname ?? "")
   const [textdescription, setTextdescription] = useState(group?.textdescription ?? "")
   const [roles, setRoles] = useState(group?.roles ?? [])
+  const [priorities, setPriorities] = useState<Record<string, number>>(group?.rolePriorities ?? {})
   const [clients, setClients] = useState(group?.clients ?? [])
   // the clients of this application cannot change their groups
   const clientNames = (allClients.data ?? []).filter((client) => !client.locked).map((client) => client.username)
@@ -184,8 +187,8 @@ function GroupDialog({ group, onClose }: { group: Group | null; onClose: () => v
   const groupChanged =
     group !== null &&
     (kickMinimal
-      ? rolesChangeCanRevoke(group.roles, roles, allRoles.data)
-      : textname !== group.textname || textdescription !== group.textdescription || !sameNames(roles, group.roles))
+      ? rolesChangeCanRevoke(group.roles, roles, allRoles.data, group.rolePriorities, priorities)
+      : textname !== group.textname || textdescription !== group.textdescription || rolesDiffer(group.roles, group.rolePriorities, roles, priorities))
   const disconnected = group
     ? [...(groupChanged ? group.clients : []), ...clients.filter((name) => !group.clients.includes(name)), ...group.clients.filter((name) => !clients.includes(name))]
     : []
@@ -194,9 +197,9 @@ function GroupDialog({ group, onClose }: { group: Group | null; onClose: () => v
     event.preventDefault()
     try {
       if (group) {
-        await update.mutateAsync({ params: { path: { groupname: group.groupname } }, body: { textname, textdescription, roles, clients } })
+        await update.mutateAsync({ params: { path: { groupname: group.groupname } }, body: { textname, textdescription, roles, clients, rolePriorities: chosenPriorities(roles, priorities) } })
       } else {
-        await create.mutateAsync({ body: { groupname, textname, textdescription, roles, clients } })
+        await create.mutateAsync({ body: { groupname, textname, textdescription, roles, clients, rolePriorities: chosenPriorities(roles, priorities) } })
       }
       toast.success(t("groups.saved"))
       await queryClient.invalidateQueries({ queryKey: groupsKey })
@@ -232,7 +235,9 @@ function GroupDialog({ group, onClose }: { group: Group | null; onClose: () => v
             </Field>
             <Field>
               <FieldLabel>{t("nav.roles")}</FieldLabel>
-              <MultiSelect idPrefix="group-role" label={t("nav.roles")} names={allRoles.data?.map((r) => r.rolename) ?? []} selected={roles} onChange={setRoles} />
+              <MultiSelect idPrefix="group-role" label={t("nav.roles")} names={allRoles.data?.map((r) => r.rolename) ?? []} selected={roles} onChange={setRoles} chips={false} />
+              <RolePriorities idPrefix="group-role-priority" roles={roles} priorities={priorities} onPriorities={setPriorities} onRemove={(role) => setRoles(roles.filter((r) => r !== role))} />
+              {roles.length > 1 && <FieldDescription>{t("roles.priorityHint")}</FieldDescription>}
             </Field>
             <Field>
               <FieldLabel>{t("nav.clients")}</FieldLabel>

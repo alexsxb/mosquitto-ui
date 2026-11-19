@@ -18,12 +18,15 @@ export function MultiSelect({
   names,
   selected,
   onChange,
+  chips = true,
 }: {
   idPrefix: string
   label: string
   names: string[]
   selected: string[]
   onChange: (selected: string[]) => void
+  /** false when the page shows what is chosen itself, e.g. roles with their priorities */
+  chips?: boolean
 }) {
   const { t } = useTranslation()
   const [search, setSearch] = useState("")
@@ -59,7 +62,7 @@ export function MultiSelect({
           </div>
         </PopoverContent>
       </Popover>
-      {selected.length > 0 && (
+      {chips && selected.length > 0 && (
         <div className="flex flex-wrap gap-1">
           {selected.map((name) => (
             <Badge key={name} variant="outline" className="chip max-w-full gap-1 pr-1">

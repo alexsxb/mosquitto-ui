@@ -354,18 +354,21 @@ La page Configuration propose pour cela <em>Listener pour un proxy</em>, avec le
 <code>subscribeLiteral</code>/<code>subscribePattern</code> (s'abonner, exactement ou avec <code>+</code>/<code>#</code>), <code>unsubscribe…</code>.
 Dans les topics, <code>%c</code> représente l'ID client et <code>%u</code> le nom d'utilisateur.</p>
 <div class="warn"><p><strong>Abonnements avec jokers&nbsp;:</strong> Mosquitto 2.1 refuse les abonnements avec <code>+</code> ou <code>#</code> si le rôle
-n'a pas «&nbsp;Autoriser les abonnements avec jokers&nbsp;»&nbsp;; le client reçoit seulement «&nbsp;subscription denied&nbsp;». L'UI l'active pour les nouveaux rôles.</p></div>
+n'a pas «&nbsp;Autoriser les abonnements avec jokers&nbsp;», dès que la vérification atteint ce rôle, quelles que soient ses règles&nbsp;; un rôle de priorité plus élevée
+peut autoriser avant. Le client reçoit seulement «&nbsp;subscription denied&nbsp;», l'<a href="#s-aufzeichnung">enregistrement</a> en donne la raison. L'UI l'active pour les nouveaux rôles.</p></div>
 <div class="note"><p><strong>L'utilisateur <code>admin</code></strong> est réservé à l'UI&nbsp;: il a droit à <code>$CONTROL</code> et <code>$SYS</code>, mais ne peut pas
 envoyer de messages sur les topics ordinaires. Les appareils reçoivent leurs propres clients. L'UI protège <code>admin</code> et tout ce dont il a besoin
 contre les modifications, pour ne pas s'enfermer dehors.</p></div>
 
 <h3 id="reihenfolge">Comment le broker décide</h3>
 <ol>
-  <li>Rôles du client, puis rôles de ses groupes, chaque fois par priorité (la plus haute d'abord).</li>
+  <li>D'abord les rôles propres du client selon leur priorité, puis ses groupes selon leur priorité et, dans chaque groupe, ses rôles selon leur priorité,
+    chaque fois la plus élevée d'abord. Sans indication, -1 s'applique. Les priorités se règlent avec les rôles d'un <a href="#s-clients">client</a> ou d'un groupe.</li>
+  <li>Un abonnement avec <code>+</code> ou <code>#</code> est refusé par le premier rôle sans abonnements avec jokers qu'atteint la vérification.</li>
   <li>Au sein d'un rôle, une règle exacte passe avant les motifs, quelle que soit la priorité.</li>
   <li>La première règle qui correspond l'emporte. Si aucune ne correspond, l'accès par défaut s'applique.</li>
 </ol>
-<p>Le testeur d'ACL de la page <a href="#s-regeln">Règles</a> refait exactement ce calcul et indique la règle décisive.</p>
+<p>Le testeur d'ACL de la page <a href="#s-regeln">Règles</a> refait exactement ce calcul, indique la règle décisive et montre l'ordre des rôles.</p>
 
 <h3 id="trennen">Quand les clients sont déconnectés</h3>
 <p>Quand les droits d'un client changent, <em>Dynamic Security</em> le déconnecte pour que le broker vérifie à nouveau ses abonnements (dans le log
@@ -374,7 +377,7 @@ réception à chaque message, l'abonnement une seule fois. Le plugin du broker d
 <table>
 <tr><th>Déconnecte</th><th>S'applique sans déconnexion</th></tr>
 <tr><td>une nouvelle règle qui interdit l'abonnement&nbsp;; la suppression d'une règle qui l'autorise&nbsp;; abonnements avec jokers désactivés&nbsp;;
-un rôle qui autorise des abonnements retiré d'un client ou d'un groupe (ou un rôle qui les interdit ajouté)&nbsp;; nouveau mot de passe, nouvel ID client,
+un rôle qui autorise des abonnements retiré d'un client ou d'un groupe ou dont la priorité y change (ou un rôle qui les interdit ajouté)&nbsp;; nouveau mot de passe, nouvel ID client,
 appartenance à un groupe&nbsp;; <em>Déconnecter</em></td>
 <td>noms et descriptions, toutes les règles de publication et de réception, les nouvelles autorisations, jokers activés, l'accès par défaut</td></tr>
 </table>
@@ -425,7 +428,7 @@ ou ouvrent le log de ce client. Les compteurs partent du démarrage du broker.</
 <figure><img src="img/05-aufzeichnung.png" alt="Enregistrement en cours avec événements" loading="lazy" width="1280" height="820"><figcaption>Un enregistrement de tous les clients dont l'ID commence par <code>shelly</code>.</figcaption></figure>
 <ul>
   <li>Enregistre jusqu'à une heure de ce que font les clients&nbsp;: connexions et déconnexions avec leur motif, abonnements, chaque message envoyé et distribué (les premiers octets),
-    et ce que le broker a refusé.</li>
+    et ce que le broker a refusé. Un abonnement refusé indique sa raison d'après les règles actuelles, par exemple un rôle sans abonnements avec jokers.</li>
   <li>Pour un ID client, tous ceux d'un préfixe (<code>sensor-*</code>), un filtre de topic, ou les deux. Un seul enregistrement à la fois, 50&nbsp;000 événements au plus.</li>
   <li>Téléchargement en JSON, valeurs en texte ou en base64. Les cinq derniers sont conservés jusqu'au redémarrage de l'UI.</li>
 </ul>
@@ -446,12 +449,15 @@ s'il se connecte, à quoi il s'abonne et si le broker refuse quelque chose.</p><
 <figure><img src="img/07-clients.png" alt="Tableau des clients" loading="lazy" width="1280" height="820"><figcaption>Clients avec rôles, groupes, connexions et dernière connexion.</figcaption></figure>
 <ul>
   <li>Création avec mot de passe, rôles et groupes&nbsp;; activation/désactivation (inactif&nbsp;: ne peut pas se connecter).</li>
+  <li><strong>Rôles avec priorité&nbsp;:</strong> la fenêtre montre chaque rôle choisi avec sa priorité&nbsp;; le broker vérifie d'abord la plus élevée
+    (voir <a href="#reihenfolge">Comment le broker décide</a>). Sans indication, -1 s'applique&nbsp;; le tableau affiche une autre valeur après le rôle, par exemple <code>sensor (5)</code>.
+    L'enregistrement conserve toutes les priorités, y compris celles des groupes d'un client, qui ne se règlent pas ici.</li>
   <li>Sur chaque ligne&nbsp;: modifier, changer le mot de passe, <em>Déconnecter</em> (toutes les connexions de cet identifiant&nbsp;; la plupart des appareils reviennent aussitôt), log, supprimer.</li>
   <li><em>Dernière connexion</em>, avec l'adresse, est mémorisée par l'UI elle-même, qui vérifie toutes les 15 secondes.</li>
   <li>De nouveaux rôles ou groupes déconnectent le client s'il est connecté&nbsp;; la fenêtre le signale avant. Le nom et la description ne touchent pas à la connexion, et enregistrer sans modification n'envoie rien au broker.</li>
   <li>En dessous, un tableau à part pour les clients venus avec un jeton d'accès.</li>
 </ul>
-<figure><img src="img/08-client-bearbeiten.png" alt="Fenêtre de modification d'un client" loading="lazy" width="1280" height="820"><figcaption>Rôles et groupes d'un client.</figcaption></figure>
+<figure><img src="img/08-client-bearbeiten.png" alt="Fenêtre de modification d'un client" loading="lazy" width="1280" height="820"><figcaption>Les rôles d'un client avec leur priorité, en dessous ses groupes.</figcaption></figure>
 
 <h3 id="s-gruppen">Groupes et rôles</h3>
 <figure><img src="img/10-rollen.png" alt="Rôles avec leurs règles" loading="lazy" width="1280" height="820"><figcaption>Rôles avec leurs règles. Les rôles marqués d'un cadenas appartiennent à l'UI.</figcaption></figure>
@@ -464,7 +470,7 @@ s'il se connecte, à quoi il s'abonne et si le broker refuse quelque chose.</p><
   <li><strong>Règles en texte&nbsp;:</strong> dans les règles d'un rôle, l'onglet <em>Texte</em> montre toutes les règles à modifier, copier et coller,
     par exemple pour reprendre les règles d'un rôle dans un autre. Avant d'appliquer, il indique en dessous ce qui est nouveau, ce qui change et ce qui disparaît.</li>
   <li>Au-dessus des règles d'un rôle figure le nombre de clients connectés qu'une modification déconnecte, voir <a href="#trennen">Quand les clients sont déconnectés</a>.</li>
-  <li><strong>Groupes&nbsp;:</strong> rôles et membres&nbsp;; le groupe des clients anonymes est signalé. Les membres ajoutés ou retirés ne déconnectent qu'eux-mêmes.</li>
+  <li><strong>Groupes&nbsp;:</strong> rôles avec priorité comme pour les clients, et membres&nbsp;; le groupe des clients anonymes est signalé. Les membres ajoutés ou retirés ne déconnectent qu'eux-mêmes.</li>
 </ul>
 <figure><img src="img/09-gruppen.png" alt="Groupes" loading="lazy" width="1280" height="820"><figcaption>Groupes avec leurs rôles et leurs membres.</figcaption></figure>
 <figure><img src="img/26-nouveau-role.png" alt="Fenêtre Nouveau rôle avec des topics autorisés" loading="lazy" width="1280" height="820"><figcaption>Un nouveau rôle sans jokers peut aussitôt s'abonner et publier sur deux topics.</figcaption></figure>
@@ -499,8 +505,11 @@ de façon à pouvoir retirer un abonnement (voir <a href="#trennen">Quand les cl
 
 <h3 id="s-regeln">Règles</h3>
 <figure><img src="img/11-regeln.png" alt="Page Règles avec testeur d'ACL" loading="lazy" width="1280" height="820"><figcaption>Testeur d'ACL, accès par défaut et groupe des clients anonymes.</figcaption></figure>
+<figure><img src="img/29-ordre-verification.png" alt="Testeur d'ACL avec l'ordre des vérifications" loading="lazy" width="1280" height="820"><figcaption>Un rôle sans abonnements avec jokers venu d'un groupe passe avant le rôle qui autoriserait <code>sensor/+</code>.</figcaption></figure>
 <ul>
-  <li><strong>Testeur d'ACL</strong> (onglet <em>Vérifier</em>)&nbsp;: saisissez un client et un topic&nbsp;; la page indique, pour publier, recevoir, s'abonner et se désabonner, si c'est permis et quelle règle en décide.</li>
+  <li><strong>Testeur d'ACL</strong> (onglet <em>Vérifier</em>)&nbsp;: saisissez un client et un topic&nbsp;; la page indique, pour publier, recevoir, s'abonner et se désabonner, si c'est permis et quelle règle en décide.
+    En dessous, l'<em>ordre des vérifications</em>&nbsp;: tous les rôles du client tels que le broker les parcourt, avec leur priorité, le groupe et sa priorité,
+    «&nbsp;pas d'abonnements avec jokers&nbsp;» et quel rôle a décidé quoi.</li>
   <li><strong>Accès par défaut</strong> pour tout ce qu'aucune règle ne couvre. Une modification s'applique immédiatement à tous.</li>
   <li><strong>Clients sans identifiant&nbsp;:</strong> les clients qui se connectent sans identifiant reçoivent les rôles de ce groupe, uniquement avec <code>allow_anonymous true</code>.</li>
 </ul>

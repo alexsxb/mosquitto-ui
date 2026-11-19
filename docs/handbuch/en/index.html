@@ -353,18 +353,21 @@ For this, the Configuration page offers <em>Listener for a proxy</em> with the P
 <code>subscribeLiteral</code>/<code>subscribePattern</code> (subscribe, exact or with <code>+</code>/<code>#</code>), <code>unsubscribe…</code>.
 In topics, <code>%c</code> stands for the client ID and <code>%u</code> for the user name.</p>
 <div class="warn"><p><strong>Wildcard subscriptions:</strong> Mosquitto 2.1 rejects subscriptions with <code>+</code> or <code>#</code> unless the role
-has “Allow wildcard subscriptions”. The client only gets “subscription denied”. The UI turns it on for new roles.</p></div>
+has “Allow wildcard subscriptions”, as soon as the check reaches that role, whatever rules it has; a role with a higher priority can allow before.
+The client only gets “subscription denied”; the <a href="#s-aufzeichnung">trace</a> names the reason. The UI turns it on for new roles.</p></div>
 <div class="note"><p><strong>The user <code>admin</code></strong> is there for the UI. It may use <code>$CONTROL</code> and <code>$SYS</code>, but cannot
 send messages on normal topics. Devices get their own clients. The UI locks <code>admin</code> and everything it needs against
 changes, so it cannot lock itself out.</p></div>
 
 <h3 id="reihenfolge">How the broker decides</h3>
 <ol>
-  <li>First the client's roles, then the roles of its groups, each by priority (highest first).</li>
+  <li>First the client's own roles by their priority, then its groups by their priority and in each group its roles by priority, the higher
+    first each time. Without one, -1 applies. The priorities are set with the roles of a <a href="#s-clients">client</a> or a group.</li>
+  <li>A subscription with <code>+</code> or <code>#</code> is refused by the first role without wildcard subscriptions the check reaches.</li>
   <li>Within a role, an exact rule comes before patterns, whatever the priority.</li>
   <li>The first matching rule decides. If none matches, the default access applies.</li>
 </ol>
-<p>The access check on the <a href="#s-regeln">Rules</a> page works out exactly this and names the rule that decides.</p>
+<p>The access check on the <a href="#s-regeln">Rules</a> page works out exactly this, names the rule that decides and shows the order of the roles.</p>
 
 <h3 id="trennen">When clients get disconnected</h3>
 <p>When the rights of a client change, <em>Dynamic Security</em> disconnects it so that the broker checks its subscriptions again (in the log
@@ -373,7 +376,7 @@ message, subscribing only once. So the plugin in the broker of the UI only disco
 <table>
 <tr><th>Disconnects</th><th>Applies without disconnecting</th></tr>
 <tr><td>a new rule forbidding to subscribe; removing a rule that allows it; wildcard subscriptions switched off; a role that allows subscribing
-leaving a client or group (or one that forbids it arriving); a new password, client ID or group membership; <em>Disconnect</em></td>
+leaving a client or group or getting another priority there (or one that forbids it arriving); a new password, client ID or group membership; <em>Disconnect</em></td>
 <td>names and descriptions, all rules for publishing and receiving, new permissions, wildcard subscriptions switched on, the default access</td></tr>
 </table>
 <p>Before saving, the dialogs say how many connected clients a change disconnects. With <code>plugin_opt_kick always</code> in
@@ -423,7 +426,7 @@ or open the log of that client. Counts start when the broker starts.</p>
 <figure><img src="img/05-aufzeichnung.png" alt="Running trace with events" loading="lazy" width="1280" height="820"><figcaption>A trace of all clients whose ID starts with <code>shelly</code>.</figcaption></figure>
 <ul>
   <li>Records for up to one hour what clients do: connect and disconnect with the reason, subscriptions, every message sent and delivered (the first bytes),
-    and what the broker refused.</li>
+    and what the broker refused. A refused subscription shows its reason by the current rules, such as a role without wildcard subscriptions.</li>
   <li>For one client ID, all with a prefix (<code>sensor-*</code>), a topic filter, or both. One trace at a time, at most 50,000 events.</li>
   <li>Download as JSON, payloads as text or base64. The last five stay until the UI restarts.</li>
 </ul>
@@ -444,12 +447,15 @@ whether it connects, what it subscribes to and whether the broker refuses anythi
 <figure><img src="img/07-clients.png" alt="Table of clients" loading="lazy" width="1280" height="820"><figcaption>Clients with roles, groups, connections and last login.</figcaption></figure>
 <ul>
   <li>Create with password, roles and groups; switch between enabled and disabled (disabled: cannot log in).</li>
+  <li><strong>Roles with a priority:</strong> the dialog lists each chosen role with its priority; the broker checks the higher one first
+    (see <a href="#reihenfolge">How the broker decides</a>). Without one, -1 applies; the table shows any other after the role, such as <code>sensor (5)</code>.
+    Saving keeps all priorities, also those of the groups of a client, which cannot be set here.</li>
   <li>Per row: edit, change password, <em>Disconnect</em> (all connections of this login; most devices come straight back), log, delete.</li>
   <li>The UI tracks <em>Last connected</em> with the address itself; it checks every 15 seconds.</li>
   <li>New roles or groups disconnect the client if it is connected; the dialog says so beforehand. Name and description leave the connection alone, and saving without a change sends nothing to the broker.</li>
   <li>Below, a separate table for clients that came with an access token.</li>
 </ul>
-<figure><img src="img/08-client-bearbeiten.png" alt="Edit client dialog" loading="lazy" width="1280" height="820"><figcaption>Roles and groups of a client.</figcaption></figure>
+<figure><img src="img/08-client-bearbeiten.png" alt="Edit client dialog" loading="lazy" width="1280" height="820"><figcaption>The roles of a client with their priorities, below its groups.</figcaption></figure>
 
 <h3 id="s-gruppen">Groups and Roles</h3>
 <figure><img src="img/10-rollen.png" alt="Roles with their rules" loading="lazy" width="1280" height="820"><figcaption>Roles with their rules. Roles with a lock belong to the UI.</figcaption></figure>
@@ -462,7 +468,7 @@ whether it connects, what it subscribes to and whether the broker refuses anythi
   <li><strong>Rules as text:</strong> in the rules of a role, the tab <em>Text</em> shows all rules to edit, copy and paste,
     for instance to take the rules of one role over to another. Before applying, it says below what is new, what changes and what goes.</li>
   <li>Above the rules of a role it says how many connected clients a change disconnects, see <a href="#trennen">When clients get disconnected</a>.</li>
-  <li><strong>Groups:</strong> roles and members. The group for anonymous clients is marked. Members that join or leave disconnect only themselves.</li>
+  <li><strong>Groups:</strong> roles with a priority as for clients, and the members. The group for anonymous clients is marked. Members that join or leave disconnect only themselves.</li>
 </ul>
 <figure><img src="img/09-gruppen.png" alt="Groups" loading="lazy" width="1280" height="820"><figcaption>Groups with their roles and members.</figcaption></figure>
 <figure><img src="img/26-new-role.png" alt="New role dialog with granted topics" loading="lazy" width="1280" height="820"><figcaption>A new role without wildcard subscriptions may subscribe and publish on two topics right away.</figcaption></figure>
@@ -497,8 +503,11 @@ the broker takes all or none and disconnects at most once, and only when a rule 
 
 <h3 id="s-regeln">Rules</h3>
 <figure><img src="img/11-regeln.png" alt="Rules page with the access check" loading="lazy" width="1280" height="820"><figcaption>Access check, default access and the group for clients without a login.</figcaption></figure>
+<figure><img src="img/29-check-order.png" alt="Access check with the order of the checks" loading="lazy" width="1280" height="820"><figcaption>A role without wildcard subscriptions from a group comes before the role that would allow <code>sensor/+</code>.</figcaption></figure>
 <ul>
-  <li><strong>Check access:</strong> enter a client and a topic. For publish, receive, subscribe and unsubscribe, the page tells you whether it is allowed and which rule decides.</li>
+  <li><strong>Check access:</strong> enter a client and a topic. For publish, receive, subscribe and unsubscribe, the page tells you whether it is allowed and which rule decides.
+    Below, the <em>order of the checks</em>: all roles of the client as the broker goes through them, with their priority, the group and its priority,
+    “no wildcard subscriptions”, and which role decided what.</li>
   <li><strong>Default access</strong> for everything no rule matches. A change applies to everyone at once.</li>
   <li><strong>Clients without a login:</strong> they get the roles of this group, only with <code>allow_anonymous true</code>.</li>
 </ul>

@@ -4,6 +4,7 @@ import com.dfc.mosquittoui.api.Dtos.AccessDefaults;
 import com.dfc.mosquittoui.api.Dtos.Acl;
 import com.dfc.mosquittoui.api.Dtos.AclDecision;
 import com.dfc.mosquittoui.api.Dtos.AclReason;
+import com.dfc.mosquittoui.api.Dtos.AclSource;
 import com.dfc.mosquittoui.api.Dtos.AclTest;
 import com.dfc.mosquittoui.api.Dtos.AclTestResult;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -27,9 +28,11 @@ public class AclTester {
     private static final String SUBSCRIBE = "subscribe";
     private static final String UNSUBSCRIBE = "unsubscribe";
     private static final String BRIDGE_STATE = "$SYS/broker/connection/+/state";
+    /** The priority the plugin gives a role or group that was given none, and leaves out of its answers. */
+    private static final int NO_PRIORITY = -1;
 
-    /** A role of a client, with the group it came through. */
-    record Source(String group, String role, boolean wildcards, List<Acl> acls) {
+    /** A role of a client, with the group it came through and the priorities that put it where it is in the order. */
+    record Source(String group, Integer groupPriority, String role, int priority, boolean wildcards, List<Acl> acls) {
     }
 
     /** Who asks: null if the client does not have that name or id. */
@@ -50,11 +53,12 @@ public class AclTester {
                 .forEach(role -> roles.put(role.path("rolename").asText(), role));
 
         List<Source> sources = new ArrayList<>();
+        // the order of acl.c: the roles of the client, then each group with its roles, all as the plugin sorted them
         if (anonymous) {
-            addGroup(sources, service.anonymousGroup(), roles);
+            addGroup(sources, service.anonymousGroup(), null, roles);
         } else {
-            client.path("roles").forEach(role -> sources.add(source(null, role.path("rolename").asText(), roles)));
-            client.path("groups").forEach(group -> addGroup(sources, group.path("groupname").asText(), roles));
+            client.path("roles").forEach(role -> sources.add(source(null, null, role, roles)));
+            client.path("groups").forEach(group -> addGroup(sources, group.path("groupname").asText(), group.path("priority").asInt(NO_PRIORITY), roles));
         }
 
         String clientId = test.clientId() != null && !test.clientId().isEmpty() ? test.clientId() : anonymous ? null : client.path("clientid").asText(null);
@@ -64,21 +68,24 @@ public class AclTester {
                 decide(PUBLISH, test.topic(), identity, sources, defaults.publishClientSend()),
                 decide(RECEIVE, test.topic(), identity, sources, defaults.publishClientReceive()),
                 decide(SUBSCRIBE, test.topic(), identity, sources, defaults.subscribe()),
-                decide(UNSUBSCRIBE, test.topic(), identity, sources, defaults.unsubscribe())));
+                decide(UNSUBSCRIBE, test.topic(), identity, sources, defaults.unsubscribe())),
+                sources.stream().map(source -> new AclSource(source.group(), source.groupPriority(), source.role(), source.priority(), source.wildcards())).toList());
     }
 
-    private void addGroup(List<Source> sources, String groupname, Map<String, JsonNode> roles) {
+    private void addGroup(List<Source> sources, String groupname, Integer groupPriority, Map<String, JsonNode> roles) {
         if (!groupname.isEmpty()) {
             dynsec.call(dynsec.command("getGroup").put("groupname", groupname)).path("group").path("roles")
-                    .forEach(role -> sources.add(source(groupname, role.path("rolename").asText(), roles)));
+                    .forEach(role -> sources.add(source(groupname, groupPriority, role, roles)));
         }
     }
 
-    private static Source source(String group, String rolename, Map<String, JsonNode> roles) {
+    /** ref: the role as the client or group names it, with its priority there. */
+    private static Source source(String group, Integer groupPriority, JsonNode ref, Map<String, JsonNode> roles) {
+        String rolename = ref.path("rolename").asText();
         JsonNode role = roles.get(rolename);
         List<Acl> acls = new ArrayList<>();
         role.path("acls").forEach(acl -> acls.add(new Acl(acl.path("acltype").asText(), acl.path("topic").asText(), acl.path("priority").asInt(), acl.path("allow").asBoolean())));
-        return new Source(group, rolename, role.path("allowwildcardsubs").asBoolean(true), acls);
+        return new Source(group, groupPriority, rolename, ref.path("priority").asInt(NO_PRIORITY), role.path("allowwildcardsubs").asBoolean(true), acls);
     }
 
     static AclDecision decide(String access, String topic, Identity identity, List<Source> sources, boolean defaultAllowed) {

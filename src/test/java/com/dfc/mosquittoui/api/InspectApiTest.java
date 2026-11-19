@@ -94,6 +94,31 @@ class InspectApiTest {
         given().get("/api/inspect/traces/" + id).then().statusCode(404);
     }
 
+    /** The broker only says no; the trace adds why, from the rules as they are. */
+    @Test
+    void aRefusedSubscriptionSaysWhy() throws Exception {
+        given().contentType(ContentType.JSON).body(Map.of("rolename", "inspect-no-wildcards", "allowwildcardsubs", false, "acls",
+                List.of(Map.of("acltype", "subscribePattern", "topic", "wc/#", "priority", 0, "allow", true)))).post("/api/roles").then().statusCode(204);
+        given().contentType(ContentType.JSON).body(Map.of("username", "inspect-wc", "password", PASSWORD, "roles", List.of("inspect-no-wildcards"), "groups", List.of()))
+                .post("/api/clients").then().statusCode(204);
+        try {
+            String id = given().contentType(ContentType.JSON).body(Map.of("clientid", "inspect-wc-*", "seconds", 60, "maxEvents", 100, "payloadBytes", 0))
+                    .post("/api/inspect/traces").then().statusCode(200).extract().path("id");
+            inBroker("mosquitto_sub -V 5 -u inspect-wc -P " + PASSWORD + " -i inspect-wc-sub -t 'wc/#' -W 3 > /dev/null 2>&1 || true");
+            await().atMost(Duration.ofSeconds(10)).untilAsserted(() -> given().get("/api/inspect/traces/" + id).then().statusCode(200)
+                    .body("events.find { it.type == 'subscribeDenied' }.topic", equalTo("wc/#"))
+                    .body("events.find { it.type == 'subscribeDenied' }.username", equalTo("inspect-wc"))
+                    .body("events.find { it.type == 'subscribeDenied' }.denial.allowed", equalTo(false))
+                    .body("events.find { it.type == 'subscribeDenied' }.denial.reason", equalTo("WILDCARDS"))
+                    .body("events.find { it.type == 'subscribeDenied' }.denial.role", equalTo("inspect-no-wildcards")));
+            given().post("/api/inspect/traces/" + id + "/stop").then().statusCode(200);
+            given().delete("/api/inspect/traces/" + id).then().statusCode(204);
+        } finally {
+            given().delete("/api/clients/inspect-wc");
+            given().delete("/api/roles/inspect-no-wildcards");
+        }
+    }
+
     @Test
     void aTraceNeedsAClientOrATopic() {
         given().contentType(ContentType.JSON).body(Map.of("seconds", 60, "maxEvents", 100, "payloadBytes", 0)).post("/api/inspect/traces").then()

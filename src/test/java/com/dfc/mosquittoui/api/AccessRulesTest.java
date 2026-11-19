@@ -11,6 +11,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.dfc.mosquittoui.api.Dtos.AccessDefaults;
 import com.dfc.mosquittoui.api.Dtos.AclDecision;
 import com.dfc.mosquittoui.api.Dtos.AclReason;
+import com.dfc.mosquittoui.api.Dtos.AclSource;
 import com.dfc.mosquittoui.api.Dtos.AclTest;
 import com.dfc.mosquittoui.broker.AclTester;
 import com.dfc.mosquittoui.broker.DynsecClient;
@@ -298,6 +299,30 @@ class AccessRulesTest {
         assertEquals(AclReason.CONTROL, decision("named-client", null, "$CONTROL/x", "publishClientReceive").reason());
     }
 
+    /** The tester lists the roles in the order the broker checks them, with the priorities that put them there. */
+    @Test
+    void theTesterShowsTheOrderOfTheRoles() {
+        role("order-low", true);
+        role("order-high", true);
+        role("order-group-a", true);
+        role("order-group-b", false);
+        group("order-group", "order-group-a", 1, "order-group-b", 3);
+        group("order-other-group", "order-low", 0);
+        client("order-client");
+        clientRole("order-client", "order-low", 2);
+        clientRole("order-client", "order-high", 9);
+        clientGroup("order-client", "order-group", 5);
+        clientGroup("order-client", "order-other-group", 8);
+
+        List<AclSource> sources = tester.test(new AclTest("order-client", null, "x")).sources();
+        assertEquals(List.of(
+                new AclSource(null, null, "order-high", 9, true),
+                new AclSource(null, null, "order-low", 2, true),
+                new AclSource("order-other-group", 8, "order-low", 0, true),
+                new AclSource("order-group", 5, "order-group-b", 3, false),
+                new AclSource("order-group", 5, "order-group-a", 1, true)), sources);
+    }
+
     @Test
     void disconnectingLeavesTheClientAsItIs() throws Exception {
         json().body(Map.of("username", "to-kick", "password", PASSWORD, "textname", "Name", "roles", List.of(), "groups", List.of())).post("/api/clients").then().statusCode(204);
@@ -484,6 +509,22 @@ class AccessRulesTest {
 
     private static Map<String, Object> rule(String acltype, String topic, int priority, boolean allow) {
         return Map.of("acltype", acltype, "topic", topic, "priority", priority, "allow", allow);
+    }
+
+    /** Saving a client sends its whole list of groups: their priorities, which the pages cannot set, must not get lost. */
+    @Test
+    void savingAClientKeepsThePrioritiesOfItsGroups() {
+        role("keep-role", true);
+        group("keep-group-a");
+        group("keep-group-b");
+        client("keep-prio");
+        clientGroup("keep-prio", "keep-group-a", 7);
+        clientGroup("keep-prio", "keep-group-b", 2);
+        json().body(Map.of("roles", List.of("keep-role"), "groups", List.of("keep-group-a", "keep-group-b"))).put("/api/clients/keep-prio").then().statusCode(204);
+        json().body(Map.of("roles", List.of("keep-role"), "groups", List.of("keep-group-a"))).put("/api/clients/keep-prio").then().statusCode(204);
+        ObjectNode groups = (ObjectNode) dynsec.call(dynsec.command("getClient").put("username", "keep-prio")).path("client");
+        assertEquals(List.of("keep-group-a"), groups.path("groups").findValuesAsText("groupname"));
+        assertEquals(7, groups.path("groups").get(0).path("priority").asInt());
     }
 
     @Test

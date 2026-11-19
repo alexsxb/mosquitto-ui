@@ -10,6 +10,7 @@ import { ConfirmDialog } from "@/components/confirm-dialog"
 import { DisconnectHint } from "@/components/disconnect-hint"
 import { BadgeList } from "@/components/badge-list"
 import { MultiSelect } from "@/components/multi-select"
+import { RolePriorities } from "@/components/role-priorities"
 import { PageToolbar } from "@/components/page-toolbar"
 import { SortableHead } from "@/components/sortable-head"
 import { TablePagination } from "@/components/table-pagination"
@@ -25,6 +26,7 @@ import { Switch } from "@/components/ui/switch"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Textarea } from "@/components/ui/textarea"
 import { sameNames, useKickMinimal } from "@/lib/disconnects"
+import { chosenPriorities, prioritySuffix, rolesDiffer } from "@/lib/role-priorities"
 import { useErrorToast } from "@/lib/errors"
 import { formatDateTime } from "@/lib/format"
 import { useTable } from "@/lib/use-table"
@@ -218,7 +220,7 @@ export function ClientsPage() {
                     {client.textname && <span className="ml-2 font-normal text-muted-foreground">{client.textname}</span>}
                   </TableCell>
                   <TableCell>
-                    <BadgeList names={client.roles} />
+                    <BadgeList names={client.roles} suffix={(role) => prioritySuffix(client.rolePriorities, role)} />
                   </TableCell>
                   <TableCell className="hidden lg:table-cell">
                     <BadgeList names={client.groups} />
@@ -338,20 +340,21 @@ function ClientDialog({ client, onClose }: { client: Client | null; onClose: () 
   const [textname, setTextname] = useState(client?.textname ?? "")
   const [textdescription, setTextdescription] = useState(client?.textdescription ?? "")
   const [roles, setRoles] = useState(client?.roles ?? [])
+  const [priorities, setPriorities] = useState<Record<string, number>>(client?.rolePriorities ?? {})
   const [groups, setGroups] = useState(client?.groups ?? [])
   // the broker disconnects a client on every change of it, with minimal not for name and description
   const kickMinimal = useKickMinimal()
   const clientChanged =
     client !== null &&
-    (!sameNames(roles, client.roles) || !sameNames(groups, client.groups) || (!kickMinimal && (textname !== client.textname || textdescription !== client.textdescription)))
+    (rolesDiffer(client.roles, client.rolePriorities, roles, priorities) || !sameNames(groups, client.groups) || (!kickMinimal && (textname !== client.textname || textdescription !== client.textdescription)))
 
   async function submit(event: FormEvent) {
     event.preventDefault()
     try {
       if (client) {
-        await update.mutateAsync({ params: { path: { username: client.username } }, body: { textname, textdescription, roles, groups } })
+        await update.mutateAsync({ params: { path: { username: client.username } }, body: { textname, textdescription, roles, groups, rolePriorities: chosenPriorities(roles, priorities) } })
       } else {
-        await create.mutateAsync({ body: { username, password, textname, textdescription, roles, groups } })
+        await create.mutateAsync({ body: { username, password, textname, textdescription, roles, groups, rolePriorities: chosenPriorities(roles, priorities) } })
       }
       toast.success(t("clients.saved"))
       await queryClient.invalidateQueries({ queryKey: clientsKey })
@@ -393,8 +396,11 @@ function ClientDialog({ client, onClose }: { client: Client | null; onClose: () 
             </Field>
             <Field>
               <FieldLabel>{t("nav.roles")}</FieldLabel>
-              <MultiSelect idPrefix="client-role" label={t("nav.roles")} names={allRoles.data?.map((r) => r.rolename) ?? []} selected={roles} onChange={setRoles} />
-              <FieldDescription>{t("clients.rolesHint")}</FieldDescription>
+              <MultiSelect idPrefix="client-role" label={t("nav.roles")} names={allRoles.data?.map((r) => r.rolename) ?? []} selected={roles} onChange={setRoles} chips={false} />
+              <RolePriorities idPrefix="client-role-priority" roles={roles} priorities={priorities} onPriorities={setPriorities} onRemove={(role) => setRoles(roles.filter((r) => r !== role))} />
+              <FieldDescription>
+                {t("clients.rolesHint")} {roles.length > 1 && t("roles.priorityHint")}
+              </FieldDescription>
             </Field>
             <Field>
               <FieldLabel>{t("nav.groups")}</FieldLabel>

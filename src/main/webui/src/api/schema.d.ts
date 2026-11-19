@@ -1764,6 +1764,15 @@ export interface components {
         };
         /** @enum {string} */
         AclReason: "RULE" | "WILDCARDS" | "DEFAULT" | "CONTROL" | "BROKER" | "INVALID";
+        AclSource: {
+            group: string | null;
+            /** Format: int32 */
+            groupPriority: number | null;
+            role: string;
+            /** Format: int32 */
+            priority: number;
+            wildcards: boolean;
+        };
         AclTest: {
             username?: string | null;
             clientId?: string | null;
@@ -1772,6 +1781,7 @@ export interface components {
         AclTestResult: {
             disabled: boolean;
             decisions: components["schemas"]["AclDecision"][];
+            sources: components["schemas"]["AclSource"][];
         };
         AllowInput: {
             match: string;
@@ -1990,6 +2000,9 @@ export interface components {
             textdescription?: string;
             roles: string[];
             groups: string[];
+            rolePriorities?: {
+                [key: string]: number;
+            } | null;
         };
         ClientLogin: {
             connectedAt: components["schemas"]["Instant"];
@@ -2001,6 +2014,9 @@ export interface components {
             textdescription?: string;
             roles: string[];
             groups: string[];
+            rolePriorities?: {
+                [key: string]: number;
+            } | null;
         };
         ClientView: {
             username: string;
@@ -2008,6 +2024,9 @@ export interface components {
             textdescription: string;
             disabled: boolean;
             roles: string[];
+            rolePriorities: {
+                [key: string]: number;
+            };
             groups: string[];
             connections: string[];
             locked: boolean;
@@ -2127,18 +2146,27 @@ export interface components {
             textdescription?: string;
             roles: string[];
             clients?: string[] | null;
+            rolePriorities?: {
+                [key: string]: number;
+            } | null;
         };
         GroupUpdate: {
             textname?: string;
             textdescription?: string;
             roles: string[];
             clients?: string[] | null;
+            rolePriorities?: {
+                [key: string]: number;
+            } | null;
         };
         GroupView: {
             groupname: string;
             textname: string;
             textdescription: string;
             roles: string[];
+            rolePriorities: {
+                [key: string]: number;
+            };
             clients: string[];
             locked: boolean;
             anonymous: boolean;
@@ -2866,6 +2894,7 @@ export interface components {
             reason: number | null;
             reasonText: string | null;
             rule: string | null;
+            denial: components["schemas"]["AclDecision"] | null;
         };
         TraceInput: {
             clientid: string | null;

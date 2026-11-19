@@ -79,6 +79,8 @@ struct client {
 	int subscription_count;
 	/* an ACL check that let nothing through yet, while a trace looks at this client */
 	char *pending_topic;
+	/* who asked, so that the UI can tell why the broker refused */
+	char *pending_username;
 	int pending_access;
 	uint8_t pending_qos;
 	bool pending_retain;
@@ -166,6 +168,8 @@ static void clear_pending(struct client *c)
 {
 	free(c->pending_topic);
 	c->pending_topic = NULL;
+	free(c->pending_username);
+	c->pending_username = NULL;
 }
 
 static void free_client(struct client *c)
@@ -401,6 +405,9 @@ static void flush_pending(struct client *c)
 		cJSON *e = trace_event(c->pending_access == MOSQ_ACL_SUBSCRIBE ? "subscribeDenied" : "publishDenied", c->id);
 		if(e){
 			cJSON_AddStringToObject(e, "topic", c->pending_topic);
+			if(c->pending_username){
+				cJSON_AddStringToObject(e, "username", c->pending_username);
+			}
 			cJSON_AddNumberToObject(e, "qos", c->pending_qos);
 			if(c->pending_access == MOSQ_ACL_WRITE){
 				cJSON_AddBoolToObject(e, "retain", c->pending_retain);
@@ -666,6 +673,8 @@ static int on_acl_check(int event, void *event_data, void *userdata)
 	if(c){
 		flush_pending(c);
 		c->pending_topic = ed->topic ? strdup(ed->topic) : NULL;
+		const char *username = mosquitto_client_username(ed->client);
+		c->pending_username = username ? strdup(username) : NULL;
 		c->pending_access = ed->access;
 		c->pending_qos = ed->qos;
 		c->pending_retain = ed->retain;

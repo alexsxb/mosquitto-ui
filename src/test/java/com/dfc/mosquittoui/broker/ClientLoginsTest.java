@@ -8,6 +8,7 @@ import com.dfc.mosquittoui.api.Dtos.MissingClient;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -29,7 +30,7 @@ class ClientLoginsTest {
     }
 
     private static ClientView client(String name, ClientLogin login, List<String> connections, boolean disabled, boolean locked) {
-        return new ClientView(name, "", "", disabled, List.of(), List.of(), connections, locked, login);
+        return new ClientView(name, "", "", disabled, List.of(), Map.of(), List.of(), connections, locked, login);
     }
 
     private static ClientView offline(String name, ClientLogin login) {

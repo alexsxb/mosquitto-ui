@@ -2,6 +2,7 @@ import { useQueryClient } from "@tanstack/react-query"
 import { BanIcon, CheckIcon, FlaskConicalIcon, InfoIcon, SlidersHorizontalIcon, XIcon } from "lucide-react"
 import { useState, type FormEvent } from "react"
 import { useTranslation } from "react-i18next"
+import type { TFunction } from "i18next"
 import { Link } from "react-router"
 import { toast } from "sonner"
 
@@ -19,9 +20,9 @@ import { Spinner } from "@/components/ui/spinner"
 import { Switch } from "@/components/ui/switch"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { useAclReason } from "@/lib/acl-reason"
 import { useErrorToast } from "@/lib/errors"
 
-type Decision = Schemas["AclDecision"]
 type Defaults = Schemas["AccessDefaults"]
 
 const accessKey = ["get", "/api/access"]
@@ -71,19 +72,69 @@ function Verdict({ allowed }: { allowed: boolean | null }) {
   )
 }
 
-function useReason() {
+/** The roles in the order the broker goes through them, and which of them decided what. */
+function CheckOrder({ sources, decisions }: { sources: Schemas["AclSource"][]; decisions: Schemas["AclDecision"][] }) {
   const { t } = useTranslation()
-  return (decision: Decision) => {
-    const via = decision.group ? ` ${t("access.viaGroup", { group: decision.group })}` : ""
-    switch (decision.reason) {
-      case "RULE":
-        return t("access.reasons.RULE", { topic: decision.rule?.topic, priority: decision.rule?.priority, role: decision.role }) + via
-      case "WILDCARDS":
-        return t("access.reasons.WILDCARDS", { role: decision.role }) + via
-      default:
-        return t(`access.reasons.${decision.reason}`)
-    }
+  const decided = (source: Schemas["AclSource"]) =>
+    decisions.filter((d) => (d.reason === "RULE" || d.reason === "WILDCARDS") && d.role === source.role && (d.group ?? null) === (source.group ?? null))
+  return (
+    <div className="space-y-2">
+      <h3 className="text-sm font-medium">{t("access.orderTitle")}</h3>
+      <p className="text-sm text-muted-foreground">{t("access.orderDesc")}</p>
+      {sources.length === 0 ? (
+        <p className="text-sm text-muted-foreground">{t("access.orderNone")}</p>
+      ) : (
+        <div className="rounded-lg border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-10">#</TableHead>
+                <TableHead>{t("access.orderRole")}</TableHead>
+                <TableHead className="hidden sm:table-cell">{t("access.orderGroup")}</TableHead>
+                <TableHead>{t("access.orderDecides")}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {sources.map((source, index) => (
+                <TableRow key={`${source.group ?? ""} ${source.role}`}>
+                  <TableCell className="text-muted-foreground">{index + 1}</TableCell>
+                  <TableCell className="whitespace-normal">
+                    <span className="font-medium">{source.role}</span>{" "}
+                    <span className="text-muted-foreground">{t("access.orderPriority", { priority: source.priority })}</span>
+                    {!source.wildcards && (
+                      <Badge variant="outline" className="ml-2">
+                        {t("access.orderNoWildcards")}
+                      </Badge>
+                    )}
+                    <div className="text-xs text-muted-foreground sm:hidden">{groupOf(t, source)}</div>
+                  </TableCell>
+                  <TableCell className="hidden text-muted-foreground sm:table-cell">{groupOf(t, source)}</TableCell>
+                  <TableCell>
+                    <div className="flex flex-wrap gap-1">
+                      {decided(source).map((d) => (
+                        <Badge key={d.access} variant={d.allowed ? "secondary" : "destructive"}>
+                          {t(`access.types.${d.access as (typeof defaultTypes)[number]}`)}
+                        </Badge>
+                      ))}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function groupOf(t: TFunction, source: Schemas["AclSource"]) {
+  if (!source.group) {
+    return t("access.orderOwn")
   }
+  return source.groupPriority == null
+    ? source.group
+    : `${source.group} ${t("access.orderPriority", { priority: source.groupPriority })}`
 }
 
 function TesterCard() {
@@ -92,7 +143,7 @@ function TesterCard() {
   const clients = $api.useQuery("get", "/api/clients")
   const test = $api.useMutation("post", "/api/access/test")
   const anonymousAllowed = useAnonymousAllowed()
-  const reason = useReason()
+  const reason = useAclReason()
 
   const [username, setUsername] = useState(ANONYMOUS)
   const [topic, setTopic] = useState("")
@@ -189,6 +240,7 @@ function TesterCard() {
                 </TableBody>
               </Table>
             </div>
+            <CheckOrder sources={test.data.sources} decisions={test.data.decisions} />
           </>
         )}
       </CardContent>

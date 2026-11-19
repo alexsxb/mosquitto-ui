@@ -354,18 +354,22 @@ Auf der Seite Konfiguration gibt es dafür <em>Listener für Proxy</em> mit dem 
 <code>subscribeLiteral</code>/<code>subscribePattern</code> (abonnieren, genau oder mit <code>+</code>/<code>#</code>), <code>unsubscribe…</code>.
 In Topics stehen <code>%c</code> für die Client-ID und <code>%u</code> für den Benutzernamen.</p>
 <div class="warn"><p><strong>Wildcard-Abos:</strong> Mosquitto 2.1 lehnt Abos mit <code>+</code> oder <code>#</code> ab, wenn die Rolle
-„Wildcard-Abos erlauben“ nicht hat; der Client bekommt nur „subscription denied“. Die UI schaltet es für neue Rollen ein.</p></div>
+„Wildcard-Abos erlauben“ nicht hat, sobald die Prüfung bei dieser Rolle ankommt, egal welche Regeln sie hat; eine Rolle mit höherer Priorität
+kann vorher erlauben. Der Client bekommt nur „subscription denied“, die <a href="#s-aufzeichnung">Aufzeichnung</a> nennt den Grund.
+Die UI schaltet es für neue Rollen ein.</p></div>
 <div class="note"><p><strong>Der Benutzer <code>admin</code></strong> ist für die UI da: Er darf <code>$CONTROL</code> und <code>$SYS</code>, aber keine
 Nachrichten auf normalen Topics senden. Geräte bekommen eigene Clients. Die UI sperrt <code>admin</code> und was er braucht gegen
 Änderungen, damit sie sich nicht selbst aussperrt.</p></div>
 
 <h3 id="reihenfolge">Wie der Broker entscheidet</h3>
 <ol>
-  <li>Rollen des Clients, dann Rollen seiner Gruppen, jeweils nach Priorität (höher zuerst).</li>
+  <li>Zuerst die eigenen Rollen des Clients nach ihrer Priorität, dann seine Gruppen nach deren Priorität und in jeder Gruppe deren Rollen
+    nach Priorität, jeweils die höhere zuerst. Ohne Angabe gilt -1. Die Prioritäten stehen bei den Rollen eines <a href="#s-clients">Clients</a> oder einer Gruppe.</li>
+  <li>Ein Abo mit <code>+</code> oder <code>#</code> lehnt die erste Rolle ohne Wildcard-Abos ab, an der die Prüfung ankommt.</li>
   <li>Innerhalb einer Rolle kommt eine genaue Regel vor den Mustern, egal welche Priorität.</li>
   <li>Die erste passende Regel entscheidet. Passt keine, gilt der Standardzugriff.</li>
 </ol>
-<p>Der ACL-Tester auf der Seite <a href="#s-regeln">Regeln</a> rechnet genau das nach und nennt die Regel, die entscheidet.</p>
+<p>Der ACL-Tester auf der Seite <a href="#s-regeln">Regeln</a> rechnet genau das nach, nennt die Regel, die entscheidet, und zeigt die Reihenfolge der Rollen.</p>
 
 <h3 id="trennen">Wann Clients getrennt werden</h3>
 <p>Ändern sich die Rechte eines Clients, trennt <em>Dynamic Security</em> ihn, damit der Broker seine Abos neu prüft (im Log
@@ -374,7 +378,7 @@ bei jeder Nachricht, nur das Abonnieren einmal. Das Plugin im Broker der UI tren
 <table>
 <tr><th>Trennt</th><th>Wirkt ohne Trennung</th></tr>
 <tr><td>Regel, die das Abonnieren verbietet, kommt dazu; Regel, die es erlaubt, fällt weg; Wildcard-Abos aus; eine Rolle, die Abos erlaubt,
-fällt bei Client oder Gruppe weg (oder eine, die sie verbietet, kommt dazu); neues Passwort, neue Client-ID, Mitgliedschaft in einer Gruppe;
+fällt bei Client oder Gruppe weg oder bekommt dort eine andere Priorität (oder eine, die sie verbietet, kommt dazu); neues Passwort, neue Client-ID, Mitgliedschaft in einer Gruppe;
 <em>Trennen</em></td>
 <td>Namen und Beschreibungen, alle Regeln zum Publizieren und Empfangen, neue Erlaubnisse, Wildcard-Abos an, der Standardzugriff</td></tr>
 </table>
@@ -425,7 +429,7 @@ oder öffnen das Log dieses Clients. Zählung ab Start des Brokers.</p>
 <figure><img src="img/05-aufzeichnung.png" alt="Laufende Aufzeichnung mit Ereignissen" loading="lazy" width="1280" height="820"><figcaption>Eine Aufzeichnung aller Clients, deren ID mit <code>shelly</code> beginnt.</figcaption></figure>
 <ul>
   <li>Zeichnet bis zu einer Stunde auf, was Clients tun: Verbinden und Trennen mit Grund, Abos, jede gesendete und zugestellte Nachricht (die ersten Bytes),
-    und was der Broker verweigert hat.</li>
+    und was der Broker verweigert hat. Bei einem verweigerten Abo steht der Grund nach den aktuellen Regeln dabei, etwa eine Rolle ohne Wildcard-Abos.</li>
   <li>Für eine Client-ID, alle mit Präfix (<code>sensor-*</code>), einen Topic-Filter oder beides. Eine Aufzeichnung zur Zeit, höchstens 50 000 Ereignisse.</li>
   <li>Download als JSON, Werte als Text oder base64. Die letzten fünf bleiben bis zum Neustart der UI.</li>
 </ul>
@@ -446,12 +450,15 @@ ob es sich verbindet, was es abonniert und ob der Broker etwas verweigert.</p></
 <figure><img src="img/07-clients.png" alt="Tabelle der Clients" loading="lazy" width="1280" height="820"><figcaption>Clients mit Rollen, Gruppen, Verbindungen und letzter Anmeldung.</figcaption></figure>
 <ul>
   <li>Anlegen mit Passwort, Rollen und Gruppen; aktiv/inaktiv schalten (inaktiv: kann sich nicht anmelden).</li>
+  <li><strong>Rollen mit Priorität:</strong> Im Dialog steht jede gewählte Rolle mit ihrer Priorität; die höhere prüft der Broker zuerst
+    (siehe <a href="#reihenfolge">Wie der Broker entscheidet</a>). Ohne Angabe gilt -1, die Tabelle zeigt eine andere hinter der Rolle, etwa <code>sensor (5)</code>.
+    Beim Speichern bleiben alle Prioritäten erhalten, auch die der Gruppen eines Clients, die sich hier nicht setzen lassen.</li>
   <li>Je Zeile: bearbeiten, Passwort ändern, <em>Trennen</em> (alle Verbindungen dieses Logins; die meisten Geräte kommen sofort wieder), Log, löschen.</li>
   <li><em>Zuletzt verbunden</em> mit Adresse merkt sich die UI selbst, sie schaut alle 15 Sekunden nach.</li>
   <li>Neue Rollen oder Gruppen trennen den Client, wenn er verbunden ist; der Dialog sagt es vorher. Name und Beschreibung ändern nichts an der Verbindung, Speichern ohne Änderung schickt nichts an den Broker.</li>
   <li>Darunter eine eigene Tabelle für Clients, die mit einem Access-Token gekommen sind.</li>
 </ul>
-<figure><img src="img/08-client-bearbeiten.png" alt="Dialog Client bearbeiten" loading="lazy" width="1280" height="820"><figcaption>Rollen und Gruppen eines Clients.</figcaption></figure>
+<figure><img src="img/08-client-bearbeiten.png" alt="Dialog Client bearbeiten" loading="lazy" width="1280" height="820"><figcaption>Rollen eines Clients mit ihrer Priorität, darunter seine Gruppen.</figcaption></figure>
 
 <h3 id="s-gruppen">Gruppen und Rollen</h3>
 <figure><img src="img/10-rollen.png" alt="Rollen mit ihren Regeln" loading="lazy" width="1280" height="820"><figcaption>Rollen mit ihren Regeln. Rollen mit Schloss gehören zur UI.</figcaption></figure>
@@ -464,7 +471,7 @@ ob es sich verbindet, was es abonniert und ob der Broker etwas verweigert.</p></
   <li><strong>Regeln als Text:</strong> In den Regeln einer Rolle zeigt der Tab <em>Text</em> alle Regeln zum Bearbeiten, Kopieren und Einfügen,
     etwa um die Regeln einer Rolle in eine andere zu übernehmen. Darunter steht vor dem Übernehmen, was neu ist, was sich ändert und was wegfällt.</li>
   <li>Über den Regeln einer Rolle steht, wie viele verbundene Clients eine Änderung trennt, siehe <a href="#trennen">Wann Clients getrennt werden</a>.</li>
-  <li><strong>Gruppen:</strong> Rollen und Mitglieder; die Gruppe für anonyme Clients ist markiert. Neue oder entfernte Mitglieder trennen nur sich selbst.</li>
+  <li><strong>Gruppen:</strong> Rollen mit Priorität wie bei Clients, dazu die Mitglieder; die Gruppe für anonyme Clients ist markiert. Neue oder entfernte Mitglieder trennen nur sich selbst.</li>
 </ul>
 <figure><img src="img/09-gruppen.png" alt="Gruppen" loading="lazy" width="1280" height="820"><figcaption>Gruppen mit ihren Rollen und Mitgliedern.</figcaption></figure>
 <figure><img src="img/26-rolle-anlegen.png" alt="Dialog Neue Rolle mit freigegebenen Topics" loading="lazy" width="1280" height="820"><figcaption>Eine neue Rolle ohne Wildcard-Abos darf gleich zwei Topics abonnieren und publizieren.</figcaption></figure>
@@ -499,8 +506,11 @@ der Broker nimmt alle oder keine und trennt höchstens einmal, und nur wenn sich
 
 <h3 id="s-regeln">Regeln</h3>
 <figure><img src="img/11-regeln.png" alt="Seite Regeln mit ACL-Tester" loading="lazy" width="1280" height="820"><figcaption>ACL-Tester, Standardzugriff und Gruppe für anonyme Clients.</figcaption></figure>
+<figure><img src="img/29-reihenfolge.png" alt="ACL-Tester mit der Reihenfolge der Prüfung" loading="lazy" width="1280" height="820"><figcaption>Eine Rolle ohne Wildcard-Abos aus einer Gruppe kommt vor der Rolle, die <code>sensor/+</code> erlauben würde.</figcaption></figure>
 <ul>
-  <li><strong>ACL-Tester:</strong> Client und Topic eingeben, die Seite sagt für Publizieren, Empfangen, Abonnieren und Abbestellen, ob es geht und welche Regel entscheidet.</li>
+  <li><strong>ACL-Tester:</strong> Client und Topic eingeben, die Seite sagt für Publizieren, Empfangen, Abonnieren und Abbestellen, ob es geht und welche Regel entscheidet.
+    Darunter die <em>Reihenfolge der Prüfung</em>: alle Rollen des Clients so, wie der Broker sie durchgeht, mit ihrer Priorität, der Gruppe samt deren Priorität,
+    „keine Wildcard-Abos“ und welche Rolle was entschieden hat.</li>
   <li><strong>Standardzugriff</strong> für alles, was keine Regel trifft. Eine Änderung gilt sofort für alle.</li>
   <li><strong>Gruppe für anonyme Clients:</strong> deren Rollen bekommen Clients ohne Anmeldung, nur mit <code>allow_anonymous true</code>.</li>
 </ul>

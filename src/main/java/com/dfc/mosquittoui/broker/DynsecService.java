@@ -23,7 +23,9 @@ import jakarta.enterprise.event.Event;
 import jakarta.inject.Inject;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -32,6 +34,9 @@ import java.util.Set;
  */
 @ApplicationScoped
 public class DynsecService {
+
+    /** The priority the plugin gives a role or group that was given none (and leaves out of its answers). */
+    private static final int NO_PRIORITY = -1;
 
     /** Client and role of the page Topics, while it is open. */
     public static final String MONITOR = "mosquitto-ui-monitor";
@@ -75,8 +80,8 @@ public class DynsecService {
     public void createClient(ClientCreate client) {
         ObjectNode command = withTexts(dynsec.command("createClient").put("username", client.username()).put("password", client.password()),
                 client.textname(), client.textdescription());
-        command.set("roles", refs("rolename", client.roles()));
-        command.set("groups", refs("groupname", client.groups()));
+        command.set("roles", refs("rolename", withPriorities(client.roles(), client.rolePriorities(), Map.of())));
+        command.set("groups", refs("groupname", withPriorities(client.groups(), null, Map.of())));
         dynsec.call(command);
         changed();
     }
@@ -87,20 +92,24 @@ public class DynsecService {
      */
     public void updateClient(String username, ClientUpdate client) {
         requireNotOwnClient(username);
-        ClientView current = getClient(username);
+        JsonNode raw = dynsec.call(dynsec.command("getClient").put("username", username)).path("client");
+        ClientView current = toClient(raw);
         String textname = changedText(client.textname(), current.textname());
         String textdescription = changedText(client.textdescription(), current.textdescription());
-        boolean roles = !sameNames(client.roles(), current.roles());
+        // the plugin takes the whole list: priorities not asked for go along as they are, else they would be lost
+        Map<String, Integer> wantedRoles = withPriorities(client.roles(), client.rolePriorities(), current.rolePriorities());
+        Map<String, Integer> wantedGroups = withPriorities(client.groups(), null, priorities(raw.path("groups"), "groupname"));
+        boolean roles = !wantedRoles.equals(current.rolePriorities());
         boolean groups = !sameNames(client.groups(), current.groups());
         if (textname == null && textdescription == null && !roles && !groups) {
             return;
         }
         ObjectNode command = withTexts(dynsec.command("modifyClient").put("username", username), textname, textdescription);
         if (roles) {
-            command.set("roles", refs("rolename", client.roles()));
+            command.set("roles", refs("rolename", wantedRoles));
         }
         if (groups) {
-            command.set("groups", refs("groupname", client.groups()));
+            command.set("groups", refs("groupname", wantedGroups));
         }
         dynsec.call(command);
     }
@@ -140,7 +149,7 @@ public class DynsecService {
 
     public void createGroup(GroupCreate group) {
         ObjectNode command = withTexts(dynsec.command("createGroup").put("groupname", group.groupname()), group.textname(), group.textdescription());
-        command.set("roles", refs("rolename", group.roles()));
+        command.set("roles", refs("rolename", withPriorities(group.roles(), group.rolePriorities(), Map.of())));
         dynsec.call(command);
         if (group.clients() != null) {
             setGroupClients(group.groupname(), group.clients());
@@ -154,11 +163,13 @@ public class DynsecService {
         JsonNode current = dynsec.call(dynsec.command("getGroup").put("groupname", groupname)).path("group");
         String textname = changedText(group.textname(), text(current, "textname"));
         String textdescription = changedText(group.textdescription(), text(current, "textdescription"));
-        boolean roles = !sameNames(group.roles(), names(current.path("roles"), "rolename"));
+        Map<String, Integer> currentRoles = priorities(current.path("roles"), "rolename");
+        Map<String, Integer> wantedRoles = withPriorities(group.roles(), group.rolePriorities(), currentRoles);
+        boolean roles = !wantedRoles.equals(currentRoles);
         if (textname != null || textdescription != null || roles) {
             ObjectNode command = withTexts(dynsec.command("modifyGroup").put("groupname", groupname), textname, textdescription);
             if (roles) {
-                command.set("roles", refs("rolename", group.roles()));
+                command.set("roles", refs("rolename", wantedRoles));
             }
             dynsec.call(command);
         }
@@ -317,10 +328,28 @@ public class DynsecService {
         return command;
     }
 
-    private ArrayNode refs(String field, List<String> names) {
+    /** Names with their priorities, as the plugin takes them; the higher one is checked first. */
+    private ArrayNode refs(String field, Map<String, Integer> priorities) {
         ArrayNode refs = mapper.createArrayNode();
-        names.forEach(name -> refs.addObject().put(field, name));
+        priorities.forEach((name, priority) -> refs.addObject().put(field, name).put("priority", priority));
         return refs;
+    }
+
+    /** The priority of each name: as asked, else the one it has, else the default of the plugin. */
+    private static Map<String, Integer> withPriorities(List<String> names, Map<String, Integer> asked, Map<String, Integer> current) {
+        Map<String, Integer> priorities = new LinkedHashMap<>();
+        for (String name : names) {
+            Integer priority = asked != null ? asked.get(name) : null;
+            priorities.put(name, priority != null ? priority : current.getOrDefault(name, NO_PRIORITY));
+        }
+        return priorities;
+    }
+
+    /** The plugin leaves out a priority it has not been given. */
+    private static Map<String, Integer> priorities(JsonNode refs, String field) {
+        Map<String, Integer> priorities = new LinkedHashMap<>();
+        refs.forEach(ref -> priorities.put(ref.path(field).asText(), ref.path("priority").asInt(NO_PRIORITY)));
+        return priorities;
     }
 
     private ClientView toClient(JsonNode client) {
@@ -328,14 +357,15 @@ public class DynsecService {
         List<String> addresses = new ArrayList<>();
         client.path("connections").forEach(connection -> addresses.add(connection.path("address").asText()));
         return new ClientView(username, text(client, "textname"), text(client, "textdescription"),
-                client.path("disabled").asBoolean(), names(client.path("roles"), "rolename"),
+                client.path("disabled").asBoolean(), names(client.path("roles"), "rolename"), priorities(client.path("roles"), "rolename"),
                 names(client.path("groups"), "groupname"), addresses, ownClient(username), logins.get(username));
     }
 
     private GroupView toGroup(JsonNode group, Set<String> locked, String anonymous) {
         String groupname = group.path("groupname").asText();
         return new GroupView(groupname, text(group, "textname"), text(group, "textdescription"),
-                names(group.path("roles"), "rolename"), names(group.path("clients"), "username"), locked.contains(groupname), groupname.equals(anonymous));
+                names(group.path("roles"), "rolename"), priorities(group.path("roles"), "rolename"), names(group.path("clients"), "username"),
+                locked.contains(groupname), groupname.equals(anonymous));
     }
 
     private RoleView toRole(JsonNode role, Set<String> locked) {
