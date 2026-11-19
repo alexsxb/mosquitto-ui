@@ -65,20 +65,24 @@ public final class Dtos {
     }
 
     /** locked: this application needs it to reach the broker, it cannot be changed here. lastLogin: null if none was seen. */
-    /** roles in the order the broker checks them, highest priority first; rolePriorities: the priority of each. */
+    /**
+     * roles and groups in the order the broker checks them, highest priority first (its own roles before any group);
+     * rolePriorities and groupPriorities: the priority of each.
+     */
     public record ClientView(String username, String textname, String textdescription, boolean disabled, List<String> roles,
-            Map<String, Integer> rolePriorities, List<String> groups, List<String> connections, boolean locked, ClientLogin lastLogin) {
+            Map<String, Integer> rolePriorities, List<String> groups, Map<String, Integer> groupPriorities, List<String> connections, boolean locked,
+            ClientLogin lastLogin) {
     }
 
-    /** rolePriorities: by role; a role without one gets 0. */
+    /** rolePriorities, groupPriorities: by role or group; one without gets -1, as in the plugin. */
     public record ClientCreate(@NotBlank @Pattern(regexp = NAME) String username, @NotBlank String password, String textname,
             String textdescription, @NotNull List<String> roles, @NotNull List<String> groups,
-            @Schema(nullable = true) Map<String, Integer> rolePriorities) {
+            @Schema(nullable = true) Map<String, Integer> rolePriorities, @Schema(nullable = true) Map<String, Integer> groupPriorities) {
     }
 
-    /** rolePriorities: by role; a role without one keeps the priority it has, a new one gets 0. */
+    /** rolePriorities, groupPriorities: by role or group; one without keeps the priority it has, a new one gets -1. */
     public record ClientUpdate(String textname, String textdescription, @NotNull List<String> roles, @NotNull List<String> groups,
-            @Schema(nullable = true) Map<String, Integer> rolePriorities) {
+            @Schema(nullable = true) Map<String, Integer> rolePriorities, @Schema(nullable = true) Map<String, Integer> groupPriorities) {
     }
 
     public record PasswordChange(@NotBlank String password) {
@@ -99,7 +103,7 @@ public final class Dtos {
     }
 
     /** clients: the members; null leaves them as they are. */
-    /** rolePriorities: by role; a role without one keeps the priority it has, a new one gets 0. */
+    /** rolePriorities: by role; a role without one keeps the priority it has, a new one gets -1. */
     public record GroupUpdate(String textname, String textdescription, @NotNull List<String> roles, @Schema(nullable = true) List<String> clients,
             @Schema(nullable = true) Map<String, Integer> rolePriorities) {
     }

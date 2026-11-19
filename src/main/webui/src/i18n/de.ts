@@ -124,6 +124,7 @@ export default {
     passwordDesc: "Ab der nächsten Verbindung muss sich der Client mit dem neuen Passwort anmelden.",
     passwordTitle: "Passwort von {{name}}",
     rolesHint: "Ohne Rolle kann sich ein Client verbinden, aber standardmäßig weder publizieren noch abonnieren.",
+    groupsPriorityHint: "Die Rollen der Gruppen prüft der Broker nach den eigenen Rollen des Clients, Gruppe für Gruppe nach deren Priorität. Ohne Angabe gilt -1.",
     saved: "Client gespeichert",
     search: "Clients suchen",
     username: "Benutzername",

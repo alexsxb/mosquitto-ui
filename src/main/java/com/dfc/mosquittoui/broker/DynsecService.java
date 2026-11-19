@@ -81,7 +81,7 @@ public class DynsecService {
         ObjectNode command = withTexts(dynsec.command("createClient").put("username", client.username()).put("password", client.password()),
                 client.textname(), client.textdescription());
         command.set("roles", refs("rolename", withPriorities(client.roles(), client.rolePriorities(), Map.of())));
-        command.set("groups", refs("groupname", withPriorities(client.groups(), null, Map.of())));
+        command.set("groups", refs("groupname", withPriorities(client.groups(), client.groupPriorities(), Map.of())));
         dynsec.call(command);
         changed();
     }
@@ -92,15 +92,14 @@ public class DynsecService {
      */
     public void updateClient(String username, ClientUpdate client) {
         requireNotOwnClient(username);
-        JsonNode raw = dynsec.call(dynsec.command("getClient").put("username", username)).path("client");
-        ClientView current = toClient(raw);
+        ClientView current = getClient(username);
         String textname = changedText(client.textname(), current.textname());
         String textdescription = changedText(client.textdescription(), current.textdescription());
         // the plugin takes the whole list: priorities not asked for go along as they are, else they would be lost
         Map<String, Integer> wantedRoles = withPriorities(client.roles(), client.rolePriorities(), current.rolePriorities());
-        Map<String, Integer> wantedGroups = withPriorities(client.groups(), null, priorities(raw.path("groups"), "groupname"));
+        Map<String, Integer> wantedGroups = withPriorities(client.groups(), client.groupPriorities(), current.groupPriorities());
         boolean roles = !wantedRoles.equals(current.rolePriorities());
-        boolean groups = !sameNames(client.groups(), current.groups());
+        boolean groups = !wantedGroups.equals(current.groupPriorities());
         if (textname == null && textdescription == null && !roles && !groups) {
             return;
         }
@@ -358,7 +357,7 @@ public class DynsecService {
         client.path("connections").forEach(connection -> addresses.add(connection.path("address").asText()));
         return new ClientView(username, text(client, "textname"), text(client, "textdescription"),
                 client.path("disabled").asBoolean(), names(client.path("roles"), "rolename"), priorities(client.path("roles"), "rolename"),
-                names(client.path("groups"), "groupname"), addresses, ownClient(username), logins.get(username));
+                names(client.path("groups"), "groupname"), priorities(client.path("groups"), "groupname"), addresses, ownClient(username), logins.get(username));
     }
 
     private GroupView toGroup(JsonNode group, Set<String> locked, String anonymous) {
@@ -380,10 +379,6 @@ public class DynsecService {
     /** The new text if it differs from the current one, else null (withTexts then leaves it out). */
     private static String changedText(String wanted, String current) {
         return wanted == null || wanted.equals(current) ? null : wanted;
-    }
-
-    private static boolean sameNames(List<String> a, List<String> b) {
-        return new HashSet<>(a).equals(new HashSet<>(b));
     }
 
     private static String text(JsonNode node, String field) {

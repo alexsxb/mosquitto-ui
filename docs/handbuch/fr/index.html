@@ -451,13 +451,14 @@ s'il se connecte, à quoi il s'abonne et si le broker refuse quelque chose.</p><
   <li>Création avec mot de passe, rôles et groupes&nbsp;; activation/désactivation (inactif&nbsp;: ne peut pas se connecter).</li>
   <li><strong>Rôles avec priorité&nbsp;:</strong> la fenêtre montre chaque rôle choisi avec sa priorité&nbsp;; le broker vérifie d'abord la plus élevée
     (voir <a href="#reihenfolge">Comment le broker décide</a>). Sans indication, -1 s'applique&nbsp;; le tableau affiche une autre valeur après le rôle, par exemple <code>sensor (5)</code>.
-    L'enregistrement conserve toutes les priorités, y compris celles des groupes d'un client, qui ne se règlent pas ici.</li>
+    Les groupes d'un client ont aussi une priorité&nbsp;: leurs rôles viennent après les siens, groupe par groupe selon cette priorité.
+    L'enregistrement conserve toutes les priorités que l'on ne modifie pas.</li>
   <li>Sur chaque ligne&nbsp;: modifier, changer le mot de passe, <em>Déconnecter</em> (toutes les connexions de cet identifiant&nbsp;; la plupart des appareils reviennent aussitôt), log, supprimer.</li>
   <li><em>Dernière connexion</em>, avec l'adresse, est mémorisée par l'UI elle-même, qui vérifie toutes les 15 secondes.</li>
   <li>De nouveaux rôles ou groupes déconnectent le client s'il est connecté&nbsp;; la fenêtre le signale avant. Le nom et la description ne touchent pas à la connexion, et enregistrer sans modification n'envoie rien au broker.</li>
   <li>En dessous, un tableau à part pour les clients venus avec un jeton d'accès.</li>
 </ul>
-<figure><img src="img/08-client-bearbeiten.png" alt="Fenêtre de modification d'un client" loading="lazy" width="1280" height="820"><figcaption>Les rôles d'un client avec leur priorité, en dessous ses groupes.</figcaption></figure>
+<figure><img src="img/08-client-bearbeiten.png" alt="Fenêtre de modification d'un client" loading="lazy" width="1280" height="820"><figcaption>Les rôles et les groupes d'un client, chacun avec sa priorité.</figcaption></figure>
 
 <h3 id="s-gruppen">Groupes et rôles</h3>
 <figure><img src="img/10-rollen.png" alt="Rôles avec leurs règles" loading="lazy" width="1280" height="820"><figcaption>Rôles avec leurs règles. Les rôles marqués d'un cadenas appartiennent à l'UI.</figcaption></figure>

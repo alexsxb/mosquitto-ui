@@ -124,6 +124,7 @@ export default {
     passwordDesc: "The client has to log in with the new password from its next connection on.",
     passwordTitle: "Password of {{name}}",
     rolesHint: "Without a role, a client can connect but by default neither publish nor subscribe.",
+    groupsPriorityHint: "The broker checks the roles of the groups after the client's own roles, group by group by their priority. Without one, -1 applies.",
     saved: "Client saved",
     search: "Search clients",
     username: "Username",

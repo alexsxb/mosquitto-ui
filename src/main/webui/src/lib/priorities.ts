@@ -12,8 +12,8 @@ export function prioritySuffix(priorities: Record<string, number> | undefined, r
   return priority === NO_PRIORITY ? undefined : ` (${priority})`
 }
 
-/** Whether the roles or their priorities differ. */
-export function rolesDiffer(
+/** Whether the names (roles or groups) or their priorities differ. */
+export function prioritiesDiffer(
   before: readonly string[],
   beforePriorities: Record<string, number> | undefined,
   after: readonly string[],

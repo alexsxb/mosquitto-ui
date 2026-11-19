@@ -4,29 +4,29 @@ import { useTranslation } from "react-i18next"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { priorityOf } from "@/lib/role-priorities"
+import { priorityOf } from "@/lib/priorities"
 
-/** The chosen roles of a client or group with their priorities; the broker checks the higher one first. */
-export function RolePriorities({
+/** Chosen roles or groups with their priorities; the broker checks the higher one first. */
+export function PriorityList({
   idPrefix,
-  roles,
+  names,
   priorities,
   onPriorities,
   onRemove,
 }: {
   idPrefix: string
-  roles: string[]
+  names: string[]
   priorities: Record<string, number>
   onPriorities: (priorities: Record<string, number>) => void
   onRemove: (role: string) => void
 }) {
   const { t } = useTranslation()
-  if (roles.length === 0) {
+  if (names.length === 0) {
     return null
   }
   return (
     <ul className="divide-y rounded-lg border">
-      {roles.map((role) => (
+      {names.map((role) => (
         <li key={role} className="flex items-center gap-2 py-1 pr-1 pl-3">
           <span className="min-w-0 flex-1 truncate text-sm" title={role}>
             {role}

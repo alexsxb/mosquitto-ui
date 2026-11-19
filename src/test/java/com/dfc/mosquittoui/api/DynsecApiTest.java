@@ -244,6 +244,26 @@ class DynsecApiTest {
         given().get("/api/clients/prio-client").then()
                 .body("roles", contains("prio-c", "prio-a", "prio-b")).body("rolePriorities.prio-a", equalTo(5)).body("rolePriorities.prio-c", equalTo(10));
 
+        // the groups of a client, the same way
+        for (String group : List.of("prio-g1", "prio-g2")) {
+            json().body(Map.of("groupname", group, "roles", List.of())).post("/api/groups").then().statusCode(204);
+        }
+        json().body(Map.of("roles", List.of("prio-a", "prio-b", "prio-c"), "groups", List.of("prio-g1", "prio-g2"), "groupPriorities", Map.of("prio-g1", 4)))
+                .put("/api/clients/prio-client").then().statusCode(204);
+        given().get("/api/clients/prio-client").then()
+                .body("groups", contains("prio-g1", "prio-g2")).body("groupPriorities.prio-g1", equalTo(4)).body("groupPriorities.prio-g2", equalTo(-1))
+                // the roles stay as they were
+                .body("rolePriorities.prio-c", equalTo(10));
+        json().body(Map.of("roles", List.of("prio-a", "prio-b", "prio-c"), "groups", List.of("prio-g1", "prio-g2"), "groupPriorities", Map.of("prio-g2", 9)))
+                .put("/api/clients/prio-client").then().statusCode(204);
+        given().get("/api/clients/prio-client").then()
+                .body("groups", contains("prio-g2", "prio-g1")).body("groupPriorities.prio-g1", equalTo(4)).body("groupPriorities.prio-g2", equalTo(9));
+        given().delete("/api/clients/prio-client").then().statusCode(204);
+        for (String group : List.of("prio-g1", "prio-g2")) {
+            given().delete("/api/groups/" + group).then().statusCode(204);
+        }
+        json().body(Map.of("username", "prio-client", "password", "x", "roles", List.of(), "groups", List.of())).post("/api/clients").then().statusCode(204);
+
         // groups the same way
         json().body(Map.of("groupname", "prio-group", "roles", List.of("prio-a"), "rolePriorities", Map.of("prio-a", 3))).post("/api/groups").then().statusCode(204);
         json().body(Map.of("roles", List.of("prio-a", "prio-b"))).put("/api/groups/prio-group").then().statusCode(204);

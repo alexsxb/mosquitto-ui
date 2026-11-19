@@ -1,5 +1,5 @@
 import { $api } from "@/api/client"
-import { priorityOf } from "@/lib/role-priorities"
+import { priorityOf } from "@/lib/priorities"
 
 /**
  * Dynamic security disconnects clients when their rights change, so that the broker checks their subscriptions again. With
@@ -16,12 +16,6 @@ type RoleRules = { rolename: string; allowwildcardsubs: boolean; acls: { acltype
 export function useKickMinimal() {
   const access = $api.useQuery("get", "/api/access")
   return access.data?.kick === "MINIMAL"
-}
-
-export function sameNames(a: readonly string[], b: readonly string[]) {
-  const left = new Set(a)
-  const right = new Set(b)
-  return left.size === right.size && [...left].every((name) => right.has(name))
 }
 
 function isSubscribe(acltype: string) {

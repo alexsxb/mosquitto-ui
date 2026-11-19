@@ -452,13 +452,14 @@ ob es sich verbindet, was es abonniert und ob der Broker etwas verweigert.</p></
   <li>Anlegen mit Passwort, Rollen und Gruppen; aktiv/inaktiv schalten (inaktiv: kann sich nicht anmelden).</li>
   <li><strong>Rollen mit Priorität:</strong> Im Dialog steht jede gewählte Rolle mit ihrer Priorität; die höhere prüft der Broker zuerst
     (siehe <a href="#reihenfolge">Wie der Broker entscheidet</a>). Ohne Angabe gilt -1, die Tabelle zeigt eine andere hinter der Rolle, etwa <code>sensor (5)</code>.
-    Beim Speichern bleiben alle Prioritäten erhalten, auch die der Gruppen eines Clients, die sich hier nicht setzen lassen.</li>
+    Die Gruppen eines Clients haben ebenso eine Priorität: Ihre Rollen kommen nach den eigenen, Gruppe für Gruppe nach dieser Priorität.
+    Beim Speichern bleiben alle Prioritäten erhalten, die man nicht ändert.</li>
   <li>Je Zeile: bearbeiten, Passwort ändern, <em>Trennen</em> (alle Verbindungen dieses Logins; die meisten Geräte kommen sofort wieder), Log, löschen.</li>
   <li><em>Zuletzt verbunden</em> mit Adresse merkt sich die UI selbst, sie schaut alle 15 Sekunden nach.</li>
   <li>Neue Rollen oder Gruppen trennen den Client, wenn er verbunden ist; der Dialog sagt es vorher. Name und Beschreibung ändern nichts an der Verbindung, Speichern ohne Änderung schickt nichts an den Broker.</li>
   <li>Darunter eine eigene Tabelle für Clients, die mit einem Access-Token gekommen sind.</li>
 </ul>
-<figure><img src="img/08-client-bearbeiten.png" alt="Dialog Client bearbeiten" loading="lazy" width="1280" height="820"><figcaption>Rollen eines Clients mit ihrer Priorität, darunter seine Gruppen.</figcaption></figure>
+<figure><img src="img/08-client-bearbeiten.png" alt="Dialog Client bearbeiten" loading="lazy" width="1280" height="820"><figcaption>Rollen und Gruppen eines Clients, jeweils mit ihrer Priorität.</figcaption></figure>
 
 <h3 id="s-gruppen">Gruppen und Rollen</h3>
 <figure><img src="img/10-rollen.png" alt="Rollen mit ihren Regeln" loading="lazy" width="1280" height="820"><figcaption>Rollen mit ihren Regeln. Rollen mit Schloss gehören zur UI.</figcaption></figure>

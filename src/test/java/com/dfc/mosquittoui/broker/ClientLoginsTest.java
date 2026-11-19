@@ -30,7 +30,7 @@ class ClientLoginsTest {
     }
 
     private static ClientView client(String name, ClientLogin login, List<String> connections, boolean disabled, boolean locked) {
-        return new ClientView(name, "", "", disabled, List.of(), Map.of(), List.of(), connections, locked, login);
+        return new ClientView(name, "", "", disabled, List.of(), Map.of(), List.of(), Map.of(), connections, locked, login);
     }
 
     private static ClientView offline(String name, ClientLogin login) {

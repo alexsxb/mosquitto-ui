@@ -449,13 +449,14 @@ whether it connects, what it subscribes to and whether the broker refuses anythi
   <li>Create with password, roles and groups; switch between enabled and disabled (disabled: cannot log in).</li>
   <li><strong>Roles with a priority:</strong> the dialog lists each chosen role with its priority; the broker checks the higher one first
     (see <a href="#reihenfolge">How the broker decides</a>). Without one, -1 applies; the table shows any other after the role, such as <code>sensor (5)</code>.
-    Saving keeps all priorities, also those of the groups of a client, which cannot be set here.</li>
+    The groups of a client have a priority as well: their roles come after its own, group by group by that priority.
+    Saving keeps every priority you do not change.</li>
   <li>Per row: edit, change password, <em>Disconnect</em> (all connections of this login; most devices come straight back), log, delete.</li>
   <li>The UI tracks <em>Last connected</em> with the address itself; it checks every 15 seconds.</li>
   <li>New roles or groups disconnect the client if it is connected; the dialog says so beforehand. Name and description leave the connection alone, and saving without a change sends nothing to the broker.</li>
   <li>Below, a separate table for clients that came with an access token.</li>
 </ul>
-<figure><img src="img/08-client-bearbeiten.png" alt="Edit client dialog" loading="lazy" width="1280" height="820"><figcaption>The roles of a client with their priorities, below its groups.</figcaption></figure>
+<figure><img src="img/08-client-bearbeiten.png" alt="Edit client dialog" loading="lazy" width="1280" height="820"><figcaption>The roles and groups of a client, each with its priority.</figcaption></figure>
 
 <h3 id="s-gruppen">Groups and Roles</h3>
 <figure><img src="img/10-rollen.png" alt="Roles with their rules" loading="lazy" width="1280" height="820"><figcaption>Roles with their rules. Roles with a lock belong to the UI.</figcaption></figure>

@@ -2003,6 +2003,9 @@ export interface components {
             rolePriorities?: {
                 [key: string]: number;
             } | null;
+            groupPriorities?: {
+                [key: string]: number;
+            } | null;
         };
         ClientLogin: {
             connectedAt: components["schemas"]["Instant"];
@@ -2017,6 +2020,9 @@ export interface components {
             rolePriorities?: {
                 [key: string]: number;
             } | null;
+            groupPriorities?: {
+                [key: string]: number;
+            } | null;
         };
         ClientView: {
             username: string;
@@ -2028,6 +2034,9 @@ export interface components {
                 [key: string]: number;
             };
             groups: string[];
+            groupPriorities: {
+                [key: string]: number;
+            };
             connections: string[];
             locked: boolean;
             lastLogin: components["schemas"]["ClientLogin"];

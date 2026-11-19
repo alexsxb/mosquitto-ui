@@ -287,7 +287,7 @@ class OutageWatchTest {
     }
 
     private static ClientView client(String name, boolean online) {
-        return new ClientView(name, "", "", false, List.of(), Map.of(), List.of(), online ? List.of("10.0.0.1") : List.of(), false, null);
+        return new ClientView(name, "", "", false, List.of(), Map.of(), List.of(), Map.of(), online ? List.of("10.0.0.1") : List.of(), false, null);
     }
 
     @Test
