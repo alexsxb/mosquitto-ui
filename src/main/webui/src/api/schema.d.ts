@@ -1271,7 +1271,8 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        put?: never;
+        /** Set Role Acls */
+        put: operations["setRoleAcls"];
         /** Add Role Acl */
         post: operations["addRoleAcl"];
         /** Remove Role Acl */
@@ -1748,6 +1749,10 @@ export interface components {
             /** Format: int32 */
             priority?: number;
             allow?: boolean;
+        };
+        AclChange: {
+            before: components["schemas"]["Acl"];
+            after: components["schemas"]["Acl"];
         };
         AclDecision: {
             access: string;
@@ -2487,6 +2492,14 @@ export interface components {
         RetainedResult: {
             /** Format: int32 */
             published: number;
+        };
+        RoleAclChanges: {
+            added: components["schemas"]["Acl"][];
+            removed: components["schemas"]["Acl"][];
+            changed: components["schemas"]["AclChange"][];
+        };
+        RoleAcls: {
+            acls: components["schemas"]["Acl"][];
         };
         RoleCreate: {
             rolename: string;
@@ -5157,6 +5170,39 @@ export interface operations {
         responses: {
             /** @description No Content */
             204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    setRoleAcls: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                rolename: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RoleAcls"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RoleAclChanges"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
                 headers: {
                     [name: string]: unknown;
                 };

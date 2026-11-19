@@ -128,6 +128,8 @@ It adds the option `plugin_opt_kick`:
   leaving a client or group (or one that forbids it arriving). A new password, client ID or group membership still
   disconnects that client, and so does *Disconnect*. Names, descriptions, rules for publishing and receiving and new
   permissions apply without a new connection: the broker checks publishing and receiving on every message anyway.
+  Replacing all rules of a role at once (`modifyRole` with `acls`, the text mode of the rules) counts the same way:
+  it disconnects once if a rule allowing to subscribe went or changed, or a rule forbidding it came or changed.
 - `always`: on every change, as Mosquitto itself.
 
 Changing the default access never disconnects anyone, with either value (as in Mosquitto). Before saving, the dialogs

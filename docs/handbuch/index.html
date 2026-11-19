@@ -379,7 +379,8 @@ fällt bei Client oder Gruppe weg (oder eine, die sie verbietet, kommt dazu); ne
 <td>Namen und Beschreibungen, alle Regeln zum Publizieren und Empfangen, neue Erlaubnisse, Wildcard-Abos an, der Standardzugriff</td></tr>
 </table>
 <p>Die Dialoge sagen vor dem Speichern, wie viele verbundene Clients eine Änderung trennt. Mit <code>plugin_opt_kick always</code> in
-<code>mosquitto.conf</code> trennt das Plugin wie Mosquitto selbst bei jeder Änderung; ohne die Zeile gilt <code>minimal</code>.</p>
+<code>mosquitto.conf</code> trennt das Plugin wie Mosquitto selbst bei jeder Änderung; ohne die Zeile gilt <code>minimal</code>.
+Wer die Regeln einer Rolle als Text übernimmt, ändert alle auf einmal; auch dann trennt nur, was in der linken Spalte steht.</p>
 
 <h3 id="konfig-dateien">Wo die Konfiguration steht</h3>
 <ul>
@@ -457,14 +458,44 @@ ob es sich verbindet, was es abonniert und ob der Broker etwas verweigert.</p></
 <ul>
   <li><strong>Rollen:</strong> Regeln hinzufügen (Typ, Topic, Priorität, erlauben/verbieten), Wildcard-Abos erlauben. <em>Publizieren und Abonnieren</em>
     legt für ein Topic auf einmal die Regeln zum Publizieren, Empfangen und Abonnieren an (bei <code>+</code>/<code>#</code> als Muster) und lässt aus, was die Rolle schon hat.</li>
-  <li><strong>Neue Rolle ohne Wildcard-Abos:</strong> Unter <em>Topics freigeben</em> gleich die Topics eintragen und anhaken, was erlaubt ist
-    (abonnieren, empfangen, publizieren). Rolle und Regeln entstehen in einem Schritt; weitere Regeln später in der Tabelle.</li>
+  <li><strong>Neue Rolle:</strong> Unter <em>Topics freigeben</em> gleich die Topics eintragen und anhaken, was erlaubt ist
+    (abonnieren, empfangen, publizieren; abonnieren mit <code>+</code>/<code>#</code> gilt als Muster). Lange Listen, Verbote und Prioritäten
+    gehen im Tab <em>Text</em>, siehe <a href="#regeln-als-text">Regeln als Text</a>. Rolle und Regeln entstehen in einem Schritt.</li>
+  <li><strong>Regeln als Text:</strong> In den Regeln einer Rolle zeigt der Tab <em>Text</em> alle Regeln zum Bearbeiten, Kopieren und Einfügen,
+    etwa um die Regeln einer Rolle in eine andere zu übernehmen. Darunter steht vor dem Übernehmen, was neu ist, was sich ändert und was wegfällt.</li>
   <li>Über den Regeln einer Rolle steht, wie viele verbundene Clients eine Änderung trennt, siehe <a href="#trennen">Wann Clients getrennt werden</a>.</li>
   <li><strong>Gruppen:</strong> Rollen und Mitglieder; die Gruppe für anonyme Clients ist markiert. Neue oder entfernte Mitglieder trennen nur sich selbst.</li>
 </ul>
 <figure><img src="img/09-gruppen.png" alt="Gruppen" loading="lazy" width="1280" height="820"><figcaption>Gruppen mit ihren Rollen und Mitgliedern.</figcaption></figure>
 <figure><img src="img/26-rolle-anlegen.png" alt="Dialog Neue Rolle mit freigegebenen Topics" loading="lazy" width="1280" height="820"><figcaption>Eine neue Rolle ohne Wildcard-Abos darf gleich zwei Topics abonnieren und publizieren.</figcaption></figure>
 <figure><img src="img/27-rolle-regeln.png" alt="Regeln einer Rolle mit Publizieren und Abonnieren und dem Hinweis auf Trennungen" loading="lazy" width="1280" height="820"><figcaption>Die Regeln einer Rolle; oben, wen eine Änderung trennt.</figcaption></figure>
+
+<h4 id="regeln-als-text">Regeln als Text</h4>
+<p>Eine Regel pro Zeile: Aktion, Topic, wahlweise <code>deny</code> und <code>prio N</code>, in beliebiger Reihenfolge und Groß- oder Kleinschreibung.
+Was kein Schlüsselwort ist, gehört zum Topic; Topics mit Leerzeichen gehen also auch ohne Anführungszeichen.</p>
+<table>
+<tr><th>Schreibweise</th><th>Bedeutung</th></tr>
+<tr><td><code>pub</code>, <code>recv</code>, <code>sub</code>, <code>unsub</code></td><td>Publizieren, Empfangen, Abonnieren, Abo beenden; <code>sub</code> und <code>unsub</code> bei <code>+</code>/<code>#</code> als Muster</td></tr>
+<tr><td><code>pubsub</code></td><td>Publizieren, Empfangen und Abonnieren</td></tr>
+<tr><td><code>subscribeLiteral</code> …</td><td>die Regeltypen von Dynamic Security selbst, etwa exakt abonnieren auf ein Topic mit <code>#</code></td></tr>
+<tr><td><code>deny</code>, <code>prio N</code></td><td>verbieten statt erlauben; Priorität statt 0</td></tr>
+<tr><td>ohne Aktion</td><td>was unter <em>Zeilen ohne Aktion</em> gewählt ist</td></tr>
+<tr><td><code>pub a, b</code></td><td>Komma oder Semikolon trennen Regeln; eine ohne eigene Schlüsselwörter übernimmt die davor</td></tr>
+<tr><td><code>- a</code>, <code>1. a</code>, Tabs</td><td>Aufzählungen aus Mails und Spalten aus Tabellen werden erkannt</td></tr>
+<tr><td><code>topic read a/#</code></td><td>Zeilen aus Mosquitto-ACL-Dateien mit <code>read</code>, <code>write</code>, <code>readwrite</code>, <code>deny</code> (dann Priorität 10 wie beim <a href="#s-import">Import</a>); <code>user</code> und <code>pattern</code> gehen nicht</td></tr>
+<tr><td><code># …</code>, <code>// …</code></td><td>Kommentar; <code>#</code> allein oder <code>haus/#</code> bleibt ein Topic</td></tr>
+<tr><td><code>"a, b"</code></td><td>Anführungszeichen für Topics mit Komma oder Semikolon oder solche, die wie ein Schlüsselwort heißen</td></tr>
+</table>
+<pre><code>sub haus/wohnzimmer/#
+pub haus/wohnzimmer/licht/set
+# aus der Mail vom Elektriker
+pub haus/wohnzimmer/rollo/set, haus/wohnzimmer/rollo/stop
+topic read haus/flur/#
+deny pub haus/wohnzimmer/thermostat/# prio 10</code></pre>
+<p>Fehler stehen mit ihrer Zeile unter dem Text, bis sie behoben sind, lässt sich nichts übernehmen. Übernommen werden alle Regeln auf einmal:
+der Broker nimmt alle oder keine und trennt höchstens einmal, und nur wenn sich eine Regel zum Abonnieren so ändert, dass sie ein Abo wegnehmen kann
+(siehe <a href="#trennen">Wann Clients getrennt werden</a>).</p>
+<figure><img src="img/28-rolle-text.png" alt="Regeln einer Rolle als Text mit eingefügten Zeilen und den Änderungen darunter" loading="lazy" width="1280" height="820"><figcaption>Die Regeln einer Rolle als Text: eingefügte Zeilen und darunter, was sich ändert.</figcaption></figure>
 
 <h3 id="s-regeln">Regeln</h3>
 <figure><img src="img/11-regeln.png" alt="Seite Regeln mit ACL-Tester" loading="lazy" width="1280" height="820"><figcaption>ACL-Tester, Standardzugriff und Gruppe für anonyme Clients.</figcaption></figure>

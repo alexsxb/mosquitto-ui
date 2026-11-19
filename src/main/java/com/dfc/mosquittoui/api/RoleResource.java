@@ -1,6 +1,8 @@
 package com.dfc.mosquittoui.api;
 
 import com.dfc.mosquittoui.api.Dtos.Acl;
+import com.dfc.mosquittoui.api.Dtos.RoleAclChanges;
+import com.dfc.mosquittoui.api.Dtos.RoleAcls;
 import com.dfc.mosquittoui.api.Dtos.RoleCreate;
 import com.dfc.mosquittoui.api.Dtos.RoleUpdate;
 import com.dfc.mosquittoui.api.Dtos.RoleView;
@@ -9,6 +11,7 @@ import com.dfc.mosquittoui.broker.DynsecService;
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
@@ -51,6 +54,12 @@ public class RoleResource {
     @Path("/{rolename}/acls")
     public void addRoleAcl(@PathParam("rolename") String rolename, @Valid Acl acl) {
         dynsec.addRoleAcl(rolename, acl);
+    }
+
+    @PUT
+    @Path("/{rolename}/acls")
+    public RoleAclChanges setRoleAcls(@PathParam("rolename") String rolename, @Valid @NotNull RoleAcls acls) {
+        return dynsec.setRoleAcls(rolename, acls.acls());
     }
 
     @DELETE

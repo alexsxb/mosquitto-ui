@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 
 import { $api, type Schemas } from "@/api/client"
+import { AclTextEditor, AclTextErrors, DefaultActionSelect, DiffList } from "@/components/acl-text-editor"
 import { ChipsInput } from "@/components/chips-input"
 import { ConfirmDialog } from "@/components/confirm-dialog"
 import { DisconnectHint } from "@/components/disconnect-hint"
@@ -22,7 +23,9 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Spinner } from "@/components/ui/spinner"
 import { Switch } from "@/components/ui/switch"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
+import { aclTypes, defaultActions, diffAcls, expandAction, normalizeAcls, parseAclText, serializeAcls, textDiffers } from "@/lib/acl-text"
 import { connectedAmong, holdersOf, useKickMinimal } from "@/lib/disconnects"
 import { useErrorToast } from "@/lib/errors"
 import { useTable } from "@/lib/use-table"
@@ -37,18 +40,14 @@ const columns = {
   acls: (role: UsedRole) => role.acls.length,
   used: (role: UsedRole) => role.used,
 }
-const aclTypes = ["publishClientSend", "publishClientReceive", "subscribeLiteral", "subscribePattern", "unsubscribeLiteral", "unsubscribePattern"] as const
-/** What a new role without wildcards can grant on its topics right away. */
-const grantTypes = ["subscribeLiteral", "publishClientReceive", "publishClientSend"] as const
+/** What a new role can grant on its topics right away; sub takes the pattern rule for topics with + or #. */
+const grantTypes = ["sub", "recv", "pub"] as const
 /** In the rules table: one choice that adds everything to publish and subscribe on a topic. */
 const pubSub = "pubSub"
 
 /** The rule types behind a choice; subscribing to a topic with + or # needs a pattern rule. */
 function aclTypesOf(choice: string, topic: string) {
-  if (choice !== pubSub) {
-    return [choice]
-  }
-  return ["publishClientSend", "publishClientReceive", /[+#]/.test(topic) ? "subscribePattern" : "subscribeLiteral"]
+  return choice === pubSub ? expandAction("pubsub", topic) : [choice]
 }
 
 export function RolesPage() {
@@ -212,11 +211,28 @@ function RoleDialog({ role, onClose }: { role: Role | null; onClose: () => void 
   const [textdescription, setTextdescription] = useState(role?.textdescription ?? "")
   const [allowwildcardsubs, setAllowwildcardsubs] = useState(role?.allowwildcardsubs ?? true)
   const [topics, setTopics] = useState<string[]>([])
-  const [grants, setGrants] = useState<string[]>(["subscribeLiteral"])
+  const [grants, setGrants] = useState<string[]>(["sub"])
+  const [topicMode, setTopicMode] = useState<"list" | "text">("list")
+  const [text, setText] = useState("")
+  const [defaultAction, setDefaultAction] = useState<string>(defaultActions[0])
 
-  // only when creating a role without wildcards; the rules table stays the place for everything else
-  const granting = !role && !allowwildcardsubs
-  const acls = granting ? topics.flatMap((topic) => grants.map((acltype) => ({ acltype, topic, priority: 0, allow: true }))) : []
+  // only when creating a role; afterwards its rules dialog is the place
+  const granting = !role
+  const listAcls = topics.flatMap((topic) =>
+    [...new Set(grants.flatMap((grant) => expandAction(grant, topic)))].map((acltype) => ({ acltype, topic, priority: 0, allow: true })),
+  )
+  const parsed = useMemo(() => parseAclText(text, [defaultAction]), [text, defaultAction])
+  const textAcls = parsed.rules.map(({ acltype, topic, priority, allow }) => ({ acltype, topic, priority, allow }))
+  const acls = !granting ? [] : topicMode === "text" ? textAcls : listAcls
+  const invalid = granting && (topicMode === "text" ? parsed.errors.length > 0 : topics.length > 0 && grants.length === 0)
+
+  function switchTopicMode(mode: "list" | "text") {
+    // the list goes along into an empty text; back from the text, the list is as it was
+    if (mode === "text" && text.trim() === "" && listAcls.length > 0) {
+      setText(serializeAcls(listAcls))
+    }
+    setTopicMode(mode)
+  }
 
   async function submit(event: FormEvent) {
     event.preventDefault()
@@ -238,7 +254,7 @@ function RoleDialog({ role, onClose }: { role: Role | null; onClose: () => void 
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent>
+      <DialogContent className={role ? undefined : "sm:max-w-xl"}>
         <form onSubmit={submit} className="space-y-6">
           <DialogHeader>
             <DialogTitle>{role ? t("roles.editTitle", { name: role.rolename }) : t("roles.addTitle")}</DialogTitle>
@@ -267,23 +283,55 @@ function RoleDialog({ role, onClose }: { role: Role | null; onClose: () => void 
             </Field>
             {granting && (
               <Field>
-                <FieldLabel htmlFor="role-topics">{t("roles.grantTopics")}</FieldLabel>
-                <ChipsInput id="role-topics" className="font-mono" placeholder="home/livingroom/temperature" value={topics} onChange={setTopics} />
-                <div className="flex flex-wrap gap-x-4 gap-y-2">
-                  {grantTypes.map((type) => (
-                    <Field key={type} orientation="horizontal" className="w-auto">
-                      <Checkbox
-                        id={`role-grant-${type}`}
-                        checked={grants.includes(type)}
-                        onCheckedChange={(checked) => setGrants((current) => (checked === true ? [...current, type] : current.filter((g) => g !== type)))}
-                      />
-                      <FieldLabel htmlFor={`role-grant-${type}`} className="font-normal">
-                        {t(`roles.aclTypes.${type}`)}
-                      </FieldLabel>
-                    </Field>
-                  ))}
+                <div className="flex items-center justify-between gap-2">
+                  <FieldLabel htmlFor="role-topics">{t("roles.grantTopics")}</FieldLabel>
+                  <Tabs value={topicMode} onValueChange={(value) => switchTopicMode(value as "list" | "text")}>
+                    <TabsList>
+                      <TabsTrigger value="list">{t("roles.text.list")}</TabsTrigger>
+                      <TabsTrigger value="text">{t("roles.text.text")}</TabsTrigger>
+                    </TabsList>
+                  </Tabs>
                 </div>
-                <FieldDescription>{t("roles.grantTopicsHint")}</FieldDescription>
+                {topicMode === "list" ? (
+                  <>
+                    <ChipsInput id="role-topics" className="font-mono" placeholder="home/livingroom/temperature" value={topics} onChange={setTopics} />
+                    <div className="flex flex-wrap gap-x-4 gap-y-2">
+                      {grantTypes.map((type) => (
+                        <Field key={type} orientation="horizontal" className="w-auto">
+                          <Checkbox
+                            id={`role-grant-${type}`}
+                            checked={grants.includes(type)}
+                            onCheckedChange={(checked) => setGrants((current) => (checked === true ? [...current, type] : current.filter((g) => g !== type)))}
+                          />
+                          <FieldLabel htmlFor={`role-grant-${type}`} className="font-normal">
+                            {t(`roles.text.defaultActions.${type}`)}
+                          </FieldLabel>
+                        </Field>
+                      ))}
+                    </div>
+                    <FieldDescription>{t("roles.grantTopicsHint")}</FieldDescription>
+                  </>
+                ) : (
+                  <>
+                    <Textarea
+                      id="role-topics"
+                      className="max-h-[40vh] min-h-40 font-mono text-xs"
+                      spellCheck={false}
+                      autoCapitalize="off"
+                      autoCorrect="off"
+                      placeholder={"home/livingroom/temperature\npub home/livingroom/light/set\nsub sensors/+/state"}
+                      value={text}
+                      onChange={(e) => setText(e.target.value)}
+                    />
+                    <FieldDescription>{t("roles.text.hint")}</FieldDescription>
+                    <AclTextErrors errors={parsed.errors} />
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                      <DefaultActionSelect id="role-text-defaults" value={defaultAction} onChange={setDefaultAction} />
+                      {textAcls.length > 0 && <p className="text-sm text-muted-foreground">{t("roles.text.rules", { count: textAcls.length })}</p>}
+                    </div>
+                    <DiffList diff={diffAcls([], parsed.rules)} />
+                  </>
+                )}
               </Field>
             )}
           </FieldGroup>
@@ -295,7 +343,7 @@ function RoleDialog({ role, onClose }: { role: Role | null; onClose: () => void 
             <Button type="button" variant="outline" onClick={onClose}>
               {t("common.cancel")}
             </Button>
-            <Button type="submit" disabled={saving || (granting && topics.length > 0 && grants.length === 0)}>
+            <Button type="submit" disabled={saving || invalid}>
               {saving && <Spinner />}
               {t("common.save")}
             </Button>
@@ -319,6 +367,19 @@ function AclDialog({ role, onClose }: { role: Role; onClose: () => void }) {
   const [topic, setTopic] = useState("")
   const [priority, setPriority] = useState(0)
   const [allow, setAllow] = useState(true)
+  const [mode, setMode] = useState<"table" | "text">("table")
+  // the text while it differs from the rules, kept when switching to the table and back
+  const [text, setText] = useState<string | null>(null)
+  const [discarding, setDiscarding] = useState(false)
+
+  /** Closing loses a text not yet applied, so it asks first. */
+  function requestClose() {
+    if (textDiffers(text, normalizeAcls(role.acls))) {
+      setDiscarding(true)
+    } else {
+      onClose()
+    }
+  }
 
   const sorted = [...role.acls].sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0) || a.topic.localeCompare(b.topic))
 
@@ -348,97 +409,119 @@ function AclDialog({ role, onClose }: { role: Role; onClose: () => void }) {
   }
 
   return (
-    <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>{t("roles.aclsTitle", { name: role.rolename })}</DialogTitle>
-          <DialogDescription>{role.locked ? t("common.lockedHint") : t("roles.aclsDesc")}</DialogDescription>
-        </DialogHeader>
-        {!role.locked && <DisconnectHint rules={kickMinimal ? "minimal" : "always"} count={affected.connected} anonymous={affected.anonymous} />}
-        {sorted.length === 0 ? (
-          <p className="py-4 text-center text-sm text-muted-foreground">{t("roles.aclsEmpty")}</p>
-        ) : (
-          <div className="max-h-72 overflow-y-auto rounded-lg border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>{t("roles.aclType")}</TableHead>
-                  <TableHead>{t("roles.topic")}</TableHead>
-                  <TableHead>{t("roles.priority")}</TableHead>
-                  <TableHead />
-                  <TableHead className="w-10" />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {sorted.map((acl) => (
-                  <TableRow key={`${acl.acltype} ${acl.topic}`}>
-                    <TableCell>{t(`roles.aclTypes.${acl.acltype as (typeof aclTypes)[number]}`, { defaultValue: acl.acltype })}</TableCell>
-                    <TableCell className="font-mono text-xs">{acl.topic}</TableCell>
-                    <TableCell>{acl.priority}</TableCell>
-                    <TableCell>
-                      <Badge variant={acl.allow ? "secondary" : "destructive"}>{acl.allow ? t("roles.allow") : t("roles.deny")}</Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Button variant="ghost" size="icon-sm" aria-label={t("common.delete")} disabled={role.locked} onClick={() => void removeAcl(acl)}>
-                        <Trash2Icon />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        )}
-        {!role.locked && (
-          <form onSubmit={submit} className="grid items-end gap-3 sm:grid-cols-[minmax(0,15rem)_minmax(0,1fr)]">
-            {/* action and topic side by side, the rest below: "Publish and subscribe" is too long for four columns */}
-            <Field>
-              <FieldLabel>{t("roles.aclType")}</FieldLabel>
-              <Select value={acltype} onValueChange={setAcltype}>
-                <SelectTrigger className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={pubSub}>{t("roles.pubSub")}</SelectItem>
-                  {aclTypes.map((type) => (
-                    <SelectItem key={type} value={type}>
-                      {t(`roles.aclTypes.${type}`)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="acl-topic">{t("roles.topic")}</FieldLabel>
-              <Input id="acl-topic" required className="font-mono" placeholder="sensors/+/state" value={topic} onChange={(e) => setTopic(e.target.value)} />
-            </Field>
-            <div className="flex flex-wrap items-end gap-2 sm:col-span-2">
-              <Field className="w-24">
-                <FieldLabel htmlFor="acl-priority">{t("roles.priority")}</FieldLabel>
-                <Input id="acl-priority" type="number" value={priority} onChange={(e) => setPriority(Number(e.target.value))} />
-              </Field>
-              <Select value={allow ? "allow" : "deny"} onValueChange={(effect) => setAllow(effect === "allow")}>
-                <SelectTrigger aria-label={t("roles.effect")} className="w-32">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="allow">{t("roles.allow")}</SelectItem>
-                  <SelectItem value="deny">{t("roles.deny")}</SelectItem>
-                </SelectContent>
-              </Select>
-              <Button type="submit" className="ml-auto" disabled={add.isPending}>
-                {add.isPending ? <Spinner /> : <PlusIcon />}
-                {t("common.add")}
-              </Button>
-            </div>
-          </form>
-        )}
-        <DialogFooter>
-          <Button type="button" variant="outline" onClick={onClose}>
-            {t("common.close")}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <>
+      <Dialog open onOpenChange={(open) => !open && requestClose()}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{t("roles.aclsTitle", { name: role.rolename })}</DialogTitle>
+            <DialogDescription>{role.locked ? t("common.lockedHint") : t("roles.aclsDesc")}</DialogDescription>
+          </DialogHeader>
+          <Tabs value={mode} onValueChange={(value) => setMode(value as "table" | "text")}>
+            <TabsList>
+              <TabsTrigger value="table">{t("roles.text.table")}</TabsTrigger>
+              <TabsTrigger value="text">{t("roles.text.text")}</TabsTrigger>
+            </TabsList>
+          </Tabs>
+          {mode === "text" ? (
+            <AclTextEditor role={role} text={text} onText={setText} affected={affected} />
+          ) : (
+            <>
+              {!role.locked && <DisconnectHint rules={kickMinimal ? "minimal" : "always"} count={affected.connected} anonymous={affected.anonymous} />}
+              {sorted.length === 0 ? (
+                <p className="py-4 text-center text-sm text-muted-foreground">{t("roles.aclsEmpty")}</p>
+              ) : (
+                <div className="max-h-72 overflow-y-auto rounded-lg border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>{t("roles.aclType")}</TableHead>
+                        <TableHead>{t("roles.topic")}</TableHead>
+                        <TableHead>{t("roles.priority")}</TableHead>
+                        <TableHead />
+                        <TableHead className="w-10" />
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {sorted.map((acl) => (
+                        <TableRow key={`${acl.acltype} ${acl.topic}`}>
+                          <TableCell>{t(`roles.aclTypes.${acl.acltype as (typeof aclTypes)[number]}`, { defaultValue: acl.acltype })}</TableCell>
+                          <TableCell className="font-mono text-xs">{acl.topic}</TableCell>
+                          <TableCell>{acl.priority}</TableCell>
+                          <TableCell>
+                            <Badge variant={acl.allow ? "secondary" : "destructive"}>{acl.allow ? t("roles.allow") : t("roles.deny")}</Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Button variant="ghost" size="icon-sm" aria-label={t("common.delete")} disabled={role.locked} onClick={() => void removeAcl(acl)}>
+                              <Trash2Icon />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+              {!role.locked && (
+                <form onSubmit={submit} className="grid items-end gap-3 sm:grid-cols-[minmax(0,15rem)_minmax(0,1fr)]">
+                  {/* action and topic side by side, the rest below: "Publish and subscribe" is too long for four columns */}
+                  <Field>
+                    <FieldLabel>{t("roles.aclType")}</FieldLabel>
+                    <Select value={acltype} onValueChange={setAcltype}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={pubSub}>{t("roles.pubSub")}</SelectItem>
+                        {aclTypes.map((type) => (
+                          <SelectItem key={type} value={type}>
+                            {t(`roles.aclTypes.${type}`)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                  <Field>
+                    <FieldLabel htmlFor="acl-topic">{t("roles.topic")}</FieldLabel>
+                    <Input id="acl-topic" required className="font-mono" placeholder="sensors/+/state" value={topic} onChange={(e) => setTopic(e.target.value)} />
+                  </Field>
+                  <div className="flex flex-wrap items-end gap-2 sm:col-span-2">
+                    <Field className="w-24">
+                      <FieldLabel htmlFor="acl-priority">{t("roles.priority")}</FieldLabel>
+                      <Input id="acl-priority" type="number" value={priority} onChange={(e) => setPriority(Number(e.target.value))} />
+                    </Field>
+                    <Select value={allow ? "allow" : "deny"} onValueChange={(effect) => setAllow(effect === "allow")}>
+                      <SelectTrigger aria-label={t("roles.effect")} className="w-32">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="allow">{t("roles.allow")}</SelectItem>
+                        <SelectItem value="deny">{t("roles.deny")}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Button type="submit" className="ml-auto" disabled={add.isPending}>
+                      {add.isPending ? <Spinner /> : <PlusIcon />}
+                      {t("common.add")}
+                    </Button>
+                  </div>
+                </form>
+              )}
+            </>
+          )}
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={requestClose}>
+              {t("common.close")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <ConfirmDialog
+        open={discarding}
+        onOpenChange={setDiscarding}
+        title={t("roles.text.discardTitle")}
+        description={t("roles.text.discardDesc")}
+        confirmLabel={t("roles.text.discard")}
+        onConfirm={onClose}
+      />
+    </>
   )
 }

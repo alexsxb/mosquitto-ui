@@ -454,6 +454,38 @@ class AccessRulesTest {
         done(watched.client.disconnect());
     }
 
+    /** All rules of a role at once (the text mode of the rules): only a change of the rules for subscribing that can take something away disconnects. */
+    @Test
+    void allRulesAtOnceDisconnectOnlyWhenTheyCanTakeASubscriptionAway() throws Exception {
+        role("set-kick", true, "subscribePattern", "set/#", true, 0, "publishClientSend", "set/#", true, 0);
+        client("set-kicked");
+        clientRole("set-kicked", "set-kick", 0);
+        Watched watched = new Watched("set-kicked");
+
+        setAcls("set-kick", rule("subscribePattern", "set/#", 0, true), rule("publishClientSend", "set/#", 0, true));
+        watched.kept("The same rules again");
+        setAcls("set-kick", rule("subscribePattern", "set/#", 0, true), rule("publishClientReceive", "set/#", 0, false));
+        watched.kept("Other rules for publishing and receiving");
+        setAcls("set-kick", rule("subscribePattern", "set/#", 0, true), rule("publishClientReceive", "set/#", 0, false),
+                rule("subscribeLiteral", "set/new", 0, true), rule("subscribeLiteral", "set/old", 0, false));
+        watched.disconnected("A new rule forbidding to subscribe");
+        setAcls("set-kick", rule("subscribePattern", "set/#", 0, true), rule("subscribeLiteral", "set/new", 0, true));
+        watched.kept("Taking away a rule that forbade subscribing");
+        setAcls("set-kick", rule("subscribePattern", "set/#", 5, true), rule("subscribeLiteral", "set/new", 0, true));
+        watched.disconnected("Another priority of a rule allowing to subscribe");
+        setAcls("set-kick", rule("subscribeLiteral", "set/new", 0, true));
+        watched.disconnected("Taking away a rule that allowed subscribing");
+        done(watched.client.disconnect());
+    }
+
+    private void setAcls(String rolename, Map<?, ?>... acls) {
+        json().body(Map.of("acls", List.of(acls))).put("/api/roles/" + rolename + "/acls").then().statusCode(200);
+    }
+
+    private static Map<String, Object> rule(String acltype, String topic, int priority, boolean allow) {
+        return Map.of("acltype", acltype, "topic", topic, "priority", priority, "allow", allow);
+    }
+
     @Test
     void defaultsOfDenyLeaveThisApplicationWorking() throws Exception {
         AccessDefaults before = service.access().defaults();

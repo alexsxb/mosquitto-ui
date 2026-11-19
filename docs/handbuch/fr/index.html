@@ -379,7 +379,8 @@ appartenance à un groupe&nbsp;; <em>Déconnecter</em></td>
 <td>noms et descriptions, toutes les règles de publication et de réception, les nouvelles autorisations, jokers activés, l'accès par défaut</td></tr>
 </table>
 <p>Avant l'enregistrement, les fenêtres indiquent combien de clients connectés une modification déconnecte. Avec <code>plugin_opt_kick always</code>
-dans <code>mosquitto.conf</code>, le plugin déconnecte à chaque modification, comme Mosquitto lui-même&nbsp;; sans la ligne, <code>minimal</code> s'applique.</p>
+dans <code>mosquitto.conf</code>, le plugin déconnecte à chaque modification, comme Mosquitto lui-même&nbsp;; sans la ligne, <code>minimal</code> s'applique.
+Appliquer les règles d'un rôle en texte les modifie toutes d'un coup&nbsp;; même alors, seul ce que liste la colonne de gauche déconnecte.</p>
 
 <h3 id="konfig-dateien">Où se trouve la configuration</h3>
 <ul>
@@ -457,14 +458,44 @@ s'il se connecte, à quoi il s'abonne et si le broker refuse quelque chose.</p><
 <ul>
   <li><strong>Rôles&nbsp;:</strong> ajouter des règles (type, topic, priorité, autoriser/interdire), «&nbsp;Autoriser les abonnements avec jokers&nbsp;». <em>Publier et s'abonner</em>
     crée d'un coup les règles de publication, de réception et d'abonnement d'un topic (en motif pour <code>+</code>/<code>#</code>) et omet ce que le rôle a déjà.</li>
-  <li><strong>Nouveau rôle sans jokers&nbsp;:</strong> sous <em>Autoriser des topics</em>, saisir aussitôt les topics et cocher ce qui est permis
-    (s'abonner, recevoir, publier). Le rôle et ses règles sont créés en une étape&nbsp;; d'autres règles ensuite dans le tableau.</li>
+  <li><strong>Nouveau rôle&nbsp;:</strong> sous <em>Autoriser des topics</em>, saisir aussitôt les topics et cocher ce qui est permis
+    (s'abonner, recevoir, publier&nbsp;; s'abonner avec <code>+</code>/<code>#</code> vaut comme motif). Les longues listes, interdictions et priorités
+    se font dans l'onglet <em>Texte</em>, voir <a href="#regeln-als-text">Règles en texte</a>. Le rôle et ses règles sont créés en une étape.</li>
+  <li><strong>Règles en texte&nbsp;:</strong> dans les règles d'un rôle, l'onglet <em>Texte</em> montre toutes les règles à modifier, copier et coller,
+    par exemple pour reprendre les règles d'un rôle dans un autre. Avant d'appliquer, il indique en dessous ce qui est nouveau, ce qui change et ce qui disparaît.</li>
   <li>Au-dessus des règles d'un rôle figure le nombre de clients connectés qu'une modification déconnecte, voir <a href="#trennen">Quand les clients sont déconnectés</a>.</li>
   <li><strong>Groupes&nbsp;:</strong> rôles et membres&nbsp;; le groupe des clients anonymes est signalé. Les membres ajoutés ou retirés ne déconnectent qu'eux-mêmes.</li>
 </ul>
 <figure><img src="img/09-gruppen.png" alt="Groupes" loading="lazy" width="1280" height="820"><figcaption>Groupes avec leurs rôles et leurs membres.</figcaption></figure>
 <figure><img src="img/26-nouveau-role.png" alt="Fenêtre Nouveau rôle avec des topics autorisés" loading="lazy" width="1280" height="820"><figcaption>Un nouveau rôle sans jokers peut aussitôt s'abonner et publier sur deux topics.</figcaption></figure>
 <figure><img src="img/27-regles-role.png" alt="Règles d'un rôle avec Publier et s'abonner et l'indication des déconnexions" loading="lazy" width="1280" height="820"><figcaption>Les règles d'un rôle&nbsp;; en haut, qui une modification déconnecte.</figcaption></figure>
+
+<h4 id="regeln-als-text">Règles en texte</h4>
+<p>Une règle par ligne&nbsp;: action, topic, éventuellement <code>deny</code> et <code>prio N</code>, dans n'importe quel ordre, en majuscules ou minuscules.
+Ce qui n'est pas un mot-clé appartient au topic&nbsp;; les topics avec des espaces fonctionnent donc aussi sans guillemets.</p>
+<table>
+<tr><th>Écriture</th><th>Signification</th></tr>
+<tr><td><code>pub</code>, <code>recv</code>, <code>sub</code>, <code>unsub</code></td><td>publier, recevoir, s'abonner, se désabonner&nbsp;; <code>sub</code> et <code>unsub</code> en motif pour <code>+</code>/<code>#</code></td></tr>
+<tr><td><code>pubsub</code></td><td>publier, recevoir et s'abonner</td></tr>
+<tr><td><code>subscribeLiteral</code> …</td><td>les types de règles de Dynamic Security eux-mêmes, par exemple s'abonner exactement à un topic avec <code>#</code></td></tr>
+<tr><td><code>deny</code>, <code>prio N</code></td><td>interdire au lieu d'autoriser&nbsp;; une priorité au lieu de 0</td></tr>
+<tr><td>sans action</td><td>ce qui est choisi sous <em>Lignes sans action</em></td></tr>
+<tr><td><code>pub a, b</code></td><td>virgules et points-virgules séparent les règles&nbsp;; une règle sans mots-clés propres reprend ceux d'avant</td></tr>
+<tr><td><code>- a</code>, <code>1. a</code>, tabulations</td><td>les listes à puces des mails et les colonnes des tableurs sont reconnues</td></tr>
+<tr><td><code>topic read a/#</code></td><td>lignes des fichiers ACL de Mosquitto avec <code>read</code>, <code>write</code>, <code>readwrite</code>, <code>deny</code> (alors priorité 10, comme à l'<a href="#s-import">import</a>)&nbsp;; <code>user</code> et <code>pattern</code> ne fonctionnent pas</td></tr>
+<tr><td><code># …</code>, <code>// …</code></td><td>un commentaire&nbsp;; <code>#</code> seul ou <code>maison/#</code> reste un topic</td></tr>
+<tr><td><code>"a, b"</code></td><td>guillemets pour les topics contenant une virgule ou un point-virgule, ou nommés comme un mot-clé</td></tr>
+</table>
+<pre><code>sub maison/salon/#
+pub maison/salon/lumiere/set
+# du mail de l'électricien
+pub maison/salon/volet/set, maison/salon/volet/stop
+topic read maison/couloir/#
+deny pub maison/salon/thermostat/# prio 10</code></pre>
+<p>Les erreurs s'affichent avec leur ligne sous le texte&nbsp;; tant qu'elles ne sont pas corrigées, rien ne peut être appliqué. Toutes les règles
+sont appliquées d'un coup&nbsp;: le broker les prend toutes ou aucune et déconnecte au plus une fois, et seulement si une règle d'abonnement change
+de façon à pouvoir retirer un abonnement (voir <a href="#trennen">Quand les clients sont déconnectés</a>).</p>
+<figure><img src="img/28-role-texte.png" alt="Règles d'un rôle en texte avec des lignes collées et les modifications en dessous" loading="lazy" width="1280" height="820"><figcaption>Les règles d'un rôle en texte&nbsp;: lignes collées et, en dessous, ce qui change.</figcaption></figure>
 
 <h3 id="s-regeln">Règles</h3>
 <figure><img src="img/11-regeln.png" alt="Page Règles avec testeur d'ACL" loading="lazy" width="1280" height="820"><figcaption>Testeur d'ACL, accès par défaut et groupe des clients anonymes.</figcaption></figure>

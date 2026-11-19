@@ -27,6 +27,8 @@ After changing the API, update the types of the frontend:
 ```
 
 The frontend lives in `src/main/webui` (React, TypeScript). `npm run build` there checks the types with `tsc -b`.
+`npm test` runs its unit tests (`src/**/*.test.ts`, with `node --test`); every build of the frontend runs them first
+(`quarkus.quinoa.run-tests`), so `./mvnw verify`, CI and the image build fail on them too, even with `-DskipTests`.
 
 ## Texts and translations
 

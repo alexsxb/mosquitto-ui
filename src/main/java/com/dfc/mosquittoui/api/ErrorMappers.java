@@ -36,7 +36,7 @@ public class ErrorMappers {
     @ServerExceptionMapper
     public Response dynsec(DynsecException e) {
         String message = e.getMessage();
-        if (message.endsWith("not found")) {
+        if (message.endsWith("not found") || message.endsWith("does not exist")) {
             return error(Response.Status.NOT_FOUND, "not_found", message, null);
         }
         if (message.endsWith("already exists")) {

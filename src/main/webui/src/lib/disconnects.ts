@@ -55,3 +55,17 @@ export function holdersOf(rolename: string, clients: readonly Known[] | undefine
   const viaGroups = new Set((groups ?? []).filter((group) => group.roles.includes(rolename)).map((group) => group.groupname))
   return (clients ?? []).filter((client) => client.roles.includes(rolename) || client.groups.some((group) => viaGroups.has(group))).map((client) => client.username)
 }
+
+type DiffRule = { acltype: string; allow: boolean }
+
+/**
+ * Whether replacing all rules of a role can take a subscription away, as kick-minimal.patch decides for modifyRole: a rule
+ * that allowed subscribing goes or changes, or one that forbids it comes or changes.
+ */
+export function aclChangeCanRevoke(diff: { added: DiffRule[]; removed: DiffRule[]; changed: { before: DiffRule; after: DiffRule }[] }) {
+  return (
+    diff.removed.some((acl) => isSubscribe(acl.acltype) && acl.allow) ||
+    diff.added.some((acl) => isSubscribe(acl.acltype) && !acl.allow) ||
+    diff.changed.some(({ before, after }) => isSubscribe(before.acltype) && (before.allow || !after.allow))
+  )
+}

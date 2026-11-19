@@ -8,9 +8,14 @@ import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
+import com.dfc.mosquittoui.audit.AuditDetails;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import org.eclipse.microprofile.openapi.annotations.media.Schema;
 /** Request and response bodies of the API. Names may not contain "/", they are path segments of the API. */
@@ -103,7 +108,62 @@ public final class Dtos {
     public record RoleUpdate(String textname, String textdescription, boolean allowwildcardsubs) {
     }
 
+    /** All rules of a role, replacing those it has. */
+    public record RoleAcls(@NotNull List<@Valid Acl> acls) {
+    }
+
+    /** What replacing all rules of a role changed: rules new by type and topic, gone, and with another priority or effect. */
+    public record RoleAclChanges(List<Acl> added, List<Acl> removed, List<AclChange> changed) implements AuditDetails {
+
+        /** Rules per entry of the audit log, so that a pasted list of thousands keeps the line readable. */
+        private static final int MAX_LOGGED = 50;
+
+        public static RoleAclChanges between(List<Acl> before, List<Acl> after) {
+            Map<String, Acl> old = before.stream().collect(Collectors.toMap(Acl::key, Function.identity(), (a, b) -> a, LinkedHashMap::new));
+            List<Acl> added = new ArrayList<>();
+            List<AclChange> changed = new ArrayList<>();
+            for (Acl acl : after) {
+                Acl was = old.remove(acl.key());
+                if (was == null) {
+                    added.add(acl);
+                } else if (was.priority() != acl.priority() || was.allow() != acl.allow()) {
+                    changed.add(new AclChange(was, acl));
+                }
+            }
+            return new RoleAclChanges(added, new ArrayList<>(old.values()), changed);
+        }
+
+        @Override
+        public Map<String, String> auditDetails() {
+            Map<String, String> details = new LinkedHashMap<>();
+            put(details, "added", added.stream().map(Acl::line).toList());
+            put(details, "removed", removed.stream().map(Acl::line).toList());
+            put(details, "changed", changed.stream().map(change -> change.before().line() + " → " + change.after().line()).toList());
+            return details;
+        }
+
+        private static void put(Map<String, String> details, String key, List<String> lines) {
+            if (!lines.isEmpty()) {
+                String shown = String.join("; ", lines.subList(0, Math.min(lines.size(), MAX_LOGGED)));
+                details.put(key, lines.size() > MAX_LOGGED ? shown + "; … " + (lines.size() - MAX_LOGGED) + " more" : shown);
+            }
+        }
+    }
+
+    public record AclChange(Acl before, Acl after) {
+    }
+
     public record Acl(@NotNull @Pattern(regexp = ACL_TYPE) String acltype, @NotBlank String topic, int priority, boolean allow) {
+
+        /** The broker knows a rule by its type and topic. */
+        String key() {
+            return acltype + " " + topic;
+        }
+
+        /** As in the log: "deny publishClientSend home/secret prio 10". */
+        String line() {
+            return (allow ? "" : "deny ") + acltype + " " + topic + (priority != 0 ? " prio " + priority : "");
+        }
     }
 
     /** What a client may do where no rule of its roles matches. */

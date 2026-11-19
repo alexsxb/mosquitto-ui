@@ -9,6 +9,7 @@ import com.dfc.mosquittoui.api.Dtos.ClientView;
 import com.dfc.mosquittoui.api.Dtos.GroupCreate;
 import com.dfc.mosquittoui.api.Dtos.GroupUpdate;
 import com.dfc.mosquittoui.api.Dtos.GroupView;
+import com.dfc.mosquittoui.api.Dtos.RoleAclChanges;
 import com.dfc.mosquittoui.api.Dtos.RoleCreate;
 import com.dfc.mosquittoui.api.Dtos.RoleUpdate;
 import com.dfc.mosquittoui.api.Dtos.RoleView;
@@ -197,12 +198,7 @@ public class DynsecService {
         ObjectNode command = withTexts(dynsec.command("createRole").put("rolename", role.rolename()), role.textname(), role.textdescription())
                 .put("allowwildcardsubs", role.allowwildcardsubs());
         if (role.acls() != null && !role.acls().isEmpty()) {
-            ArrayNode acls = command.putArray("acls");
-            role.acls().forEach(acl -> acls.addObject()
-                    .put("acltype", acl.acltype())
-                    .put("topic", acl.topic())
-                    .put("priority", acl.priority())
-                    .put("allow", acl.allow()));
+            putAcls(command, role.acls());
         }
         dynsec.call(command);
         changed();
@@ -236,6 +232,37 @@ public class DynsecService {
         requireNotLocked(lockedRoles(), rolename);
         dynsec.call(dynsec.command("removeRoleACL").put("rolename", rolename).put("acltype", acltype).put("topic", topic));
         changed();
+    }
+
+    /**
+     * All rules of the role at once, in one modifyRole: the broker takes all of them or none, and disconnects the holders of the role
+     * at most once instead of for every rule.
+     */
+    public RoleAclChanges setRoleAcls(String rolename, List<Acl> acls) {
+        requireNotLocked(lockedRoles(), rolename);
+        ObjectNode command = putAcls(dynsec.command("modifyRole").put("rolename", rolename), acls);
+        // what the role had, for the audit log: what changed tells more than the whole list
+        List<Acl> before = toRole(dynsec.call(dynsec.command("getRole").put("rolename", rolename)).path("role"), Set.of()).acls();
+        dynsec.call(command);
+        changed();
+        return RoleAclChanges.between(before, acls);
+    }
+
+    /** The broker knows a rule by its type and topic; it would keep one of two with the same and drop the other unseen. */
+    private static ObjectNode putAcls(ObjectNode command, List<Acl> rules) {
+        Set<String> seen = new HashSet<>();
+        ArrayNode acls = command.putArray("acls");
+        for (Acl acl : rules) {
+            if (!seen.add(acl.acltype() + " " + acl.topic())) {
+                throw new DynsecException("Rule " + acl.acltype() + " " + acl.topic() + " appears twice");
+            }
+            acls.addObject()
+                    .put("acltype", acl.acltype())
+                    .put("topic", acl.topic())
+                    .put("priority", acl.priority())
+                    .put("allow", acl.allow());
+        }
+        return command;
     }
 
     // --- what holds for everyone ---

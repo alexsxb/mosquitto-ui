@@ -46,6 +46,9 @@ public class AuditInterceptor {
         Map<String, String> details = details(context);
         try {
             Object result = context.proceed();
+            if (result instanceof AuditDetails done) {
+                details.putAll(done.auditDetails());
+            }
             log.record(identity.getPrincipal().getName(), action, details, reportedError(result));
             return result;
         } catch (Exception e) {

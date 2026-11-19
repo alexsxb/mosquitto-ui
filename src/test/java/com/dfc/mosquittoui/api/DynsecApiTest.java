@@ -176,6 +176,55 @@ class DynsecApiTest {
     }
 
     @Test
+    void allRulesAtOnce() {
+        json().body(Map.of("rolename", "set-role", "allowwildcardsubs", true, "acls", List.of(rule("publishClientSend", "old", 0, true))))
+                .post("/api/roles").then().statusCode(204);
+        json().body(Map.of("acls", List.of(rule("subscribePattern", "home/#", 0, true), rule("publishClientSend", "home/secret", 10, false))))
+                .put("/api/roles/set-role/acls").then().statusCode(200)
+                .body("added.topic", contains("home/#", "home/secret"))
+                .body("removed.topic", contains("old"))
+                .body("changed.size()", equalTo(0))
+                .body("auditDetails", nullValue());
+        // the audit log says what changed, newest entry first
+        given().get("/api/audit").then()
+                .body("find { it.action == 'setRoleAcls' && it.details.rolename == 'set-role' }.details.added",
+                        equalTo("subscribePattern home/#; deny publishClientSend home/secret prio 10"))
+                .body("find { it.action == 'setRoleAcls' && it.details.rolename == 'set-role' }.details.removed", equalTo("publishClientSend old"));
+        given().get("/api/roles").then()
+                .body("find { it.rolename == 'set-role' }.acls.topic", containsInAnyOrder("home/#", "home/secret"))
+                .body("find { it.rolename == 'set-role' }.acls.find { it.topic == 'home/secret' }.priority", equalTo(10))
+                .body("find { it.rolename == 'set-role' }.acls.find { it.topic == 'home/secret' }.allow", equalTo(false))
+                // the rest of the role stays
+                .body("find { it.rolename == 'set-role' }.allowwildcardsubs", equalTo(true));
+
+        // the same rule twice, or one the API refuses, changes nothing
+        json().body(Map.of("acls", List.of(rule("publishClientSend", "a", 0, true), rule("publishClientSend", "a", 5, false))))
+                .put("/api/roles/set-role/acls").then().statusCode(400).body("message", equalTo("Rule publishClientSend a appears twice"));
+        json().body(Map.of("acls", List.of(rule("bogus", "a", 0, true)))).put("/api/roles/set-role/acls").then().statusCode(400).body("field", equalTo("acltype"));
+        json().body(Map.of()).put("/api/roles/set-role/acls").then().statusCode(400);
+        given().get("/api/roles").then().body("find { it.rolename == 'set-role' }.acls.size()", equalTo(2));
+
+        json().body(Map.of("acls", List.of(rule("subscribePattern", "home/#", 5, true)))).put("/api/roles/set-role/acls").then().statusCode(200)
+                .body("changed[0].before.priority", equalTo(0)).body("changed[0].after.priority", equalTo(5))
+                .body("removed.topic", contains("home/secret"));
+        given().get("/api/audit").then()
+                .body("find { it.action == 'setRoleAcls' && it.details.rolename == 'set-role' }.details.changed",
+                        equalTo("subscribePattern home/# → subscribePattern home/# prio 5"))
+                .body("find { it.action == 'setRoleAcls' && it.details.rolename == 'set-role' }.details.added", nullValue());
+
+        json().body(Map.of("acls", List.of())).put("/api/roles/set-role/acls").then().statusCode(200);
+        given().get("/api/roles").then().body("find { it.rolename == 'set-role' }.acls.size()", equalTo(0));
+
+        json().body(Map.of("acls", List.of())).put("/api/roles/no-such-role/acls").then().statusCode(404).body("code", equalTo("not_found"));
+        json().body(Map.of("acls", List.of())).put("/api/roles/super-admin/acls").then().statusCode(409);
+        given().delete("/api/roles/set-role").then().statusCode(204);
+    }
+
+    private static Map<String, Object> rule(String acltype, String topic, int priority, boolean allow) {
+        return Map.of("acltype", acltype, "topic", topic, "priority", priority, "allow", allow);
+    }
+
+    @Test
     void errorsOfTheBroker() {
         given().get("/api/clients/nobody").then().statusCode(404).body("code", equalTo("not_found"));
         json().body(Map.of("username", "dup", "password", "x", "roles", List.of("no-such-role"), "groups", List.of())).post("/api/clients").then()

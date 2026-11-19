@@ -8,6 +8,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
+    "test": "node --test \"src/**/*.test.ts\"",
     "preview": "vite preview",
     "gen:api": "npx --yes openapi-typescript@7.13.0 ../../../target/openapi/openapi.json --properties-required-by-default -o src/api/schema.d.ts"
   },

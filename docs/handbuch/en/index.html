@@ -377,7 +377,8 @@ leaving a client or group (or one that forbids it arriving); a new password, cli
 <td>names and descriptions, all rules for publishing and receiving, new permissions, wildcard subscriptions switched on, the default access</td></tr>
 </table>
 <p>Before saving, the dialogs say how many connected clients a change disconnects. With <code>plugin_opt_kick always</code> in
-<code>mosquitto.conf</code> the plugin disconnects on every change, as Mosquitto itself does; without the line, <code>minimal</code> applies.</p>
+<code>mosquitto.conf</code> the plugin disconnects on every change, as Mosquitto itself does; without the line, <code>minimal</code> applies.
+Applying the rules of a role as text changes all of them at once; even then, only what the left column lists disconnects.</p>
 
 <h3 id="konfig-dateien">Where the configuration lives</h3>
 <ul>
@@ -455,14 +456,44 @@ whether it connects, what it subscribes to and whether the broker refuses anythi
 <ul>
   <li><strong>Roles:</strong> add rules (type, topic, priority, allow/deny), allow wildcard subscriptions. <em>Publish and subscribe</em>
     adds the rules to publish, receive and subscribe on a topic at once (as a pattern for <code>+</code>/<code>#</code>) and skips what the role already has.</li>
-  <li><strong>New role without wildcard subscriptions:</strong> under <em>Grant topics</em>, enter the topics right away and check what is allowed
-    (subscribe, receive, publish). Role and rules are created in one step; further rules later in the table.</li>
+  <li><strong>New role:</strong> under <em>Grant topics</em>, enter the topics right away and check what is allowed
+    (subscribe, receive, publish; subscribing with <code>+</code>/<code>#</code> counts as a pattern). Long lists, denials and priorities
+    go in the tab <em>Text</em>, see <a href="#regeln-als-text">Rules as text</a>. Role and rules are created in one step.</li>
+  <li><strong>Rules as text:</strong> in the rules of a role, the tab <em>Text</em> shows all rules to edit, copy and paste,
+    for instance to take the rules of one role over to another. Before applying, it says below what is new, what changes and what goes.</li>
   <li>Above the rules of a role it says how many connected clients a change disconnects, see <a href="#trennen">When clients get disconnected</a>.</li>
   <li><strong>Groups:</strong> roles and members. The group for anonymous clients is marked. Members that join or leave disconnect only themselves.</li>
 </ul>
 <figure><img src="img/09-gruppen.png" alt="Groups" loading="lazy" width="1280" height="820"><figcaption>Groups with their roles and members.</figcaption></figure>
 <figure><img src="img/26-new-role.png" alt="New role dialog with granted topics" loading="lazy" width="1280" height="820"><figcaption>A new role without wildcard subscriptions may subscribe and publish on two topics right away.</figcaption></figure>
 <figure><img src="img/27-role-rules.png" alt="Rules of a role with Publish and subscribe and the note on disconnects" loading="lazy" width="1280" height="820"><figcaption>The rules of a role; at the top, whom a change disconnects.</figcaption></figure>
+
+<h4 id="regeln-als-text">Rules as text</h4>
+<p>One rule per line: action, topic, optionally <code>deny</code> and <code>prio N</code>, in any order and any case.
+Whatever is not a keyword belongs to the topic, so topics with spaces work without quotes as well.</p>
+<table>
+<tr><th>Written as</th><th>Meaning</th></tr>
+<tr><td><code>pub</code>, <code>recv</code>, <code>sub</code>, <code>unsub</code></td><td>publish, receive, subscribe, unsubscribe; <code>sub</code> and <code>unsub</code> as a pattern for <code>+</code>/<code>#</code></td></tr>
+<tr><td><code>pubsub</code></td><td>publish, receive and subscribe</td></tr>
+<tr><td><code>subscribeLiteral</code> …</td><td>the rule types of Dynamic Security themselves, such as subscribing exactly to a topic with <code>#</code></td></tr>
+<tr><td><code>deny</code>, <code>prio N</code></td><td>deny instead of allow; a priority instead of 0</td></tr>
+<tr><td>no action</td><td>what is chosen under <em>Lines without an action</em></td></tr>
+<tr><td><code>pub a, b</code></td><td>commas and semicolons separate rules; one without keywords of its own takes those before it</td></tr>
+<tr><td><code>- a</code>, <code>1. a</code>, tabs</td><td>bullet lists from mails and columns from spreadsheets are recognised</td></tr>
+<tr><td><code>topic read a/#</code></td><td>lines of Mosquitto ACL files with <code>read</code>, <code>write</code>, <code>readwrite</code>, <code>deny</code> (then priority 10, as in the <a href="#s-import">import</a>); <code>user</code> and <code>pattern</code> do not work</td></tr>
+<tr><td><code># …</code>, <code>// …</code></td><td>a comment; <code>#</code> alone or <code>home/#</code> stays a topic</td></tr>
+<tr><td><code>"a, b"</code></td><td>quotes for topics with a comma or semicolon, or ones named like a keyword</td></tr>
+</table>
+<pre><code>sub home/living-room/#
+pub home/living-room/light/set
+# from the electrician's mail
+pub home/living-room/blind/set, home/living-room/blind/stop
+topic read home/hallway/#
+deny pub home/living-room/thermostat/# prio 10</code></pre>
+<p>Errors are listed with their line below the text; until they are fixed, nothing can be applied. All rules are applied at once:
+the broker takes all or none and disconnects at most once, and only when a rule for subscribing changes in a way that can take a subscription away
+(see <a href="#trennen">When clients get disconnected</a>).</p>
+<figure><img src="img/28-role-text.png" alt="Rules of a role as text with pasted lines and the changes below" loading="lazy" width="1280" height="820"><figcaption>The rules of a role as text: pasted lines and, below, what changes.</figcaption></figure>
 
 <h3 id="s-regeln">Rules</h3>
 <figure><img src="img/11-regeln.png" alt="Rules page with the access check" loading="lazy" width="1280" height="820"><figcaption>Access check, default access and the group for clients without a login.</figcaption></figure>
