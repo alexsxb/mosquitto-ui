@@ -123,7 +123,7 @@ main { padding: 40px 48px 120px; min-width: 0; max-width: 900px; }
     <li><a href="#ueberblick">Vue d'ensemble</a>
       <ol><li><a href="#funktionen">Ce que fait l'UI</a></li><li><a href="#aufbau">Son architecture</a></li></ol></li>
     <li><a href="#installation">Installation</a>
-      <ol><li><a href="#voraussetzungen">Prérequis</a></li><li><a href="#docker">Avec Docker Compose</a></li><li><a href="#ohne-docker">Sans Docker (systemd)</a></li>
+      <ol><li><a href="#voraussetzungen">Prérequis</a></li><li><a href="#assistent">Avec l'assistant d'installation</a></li><li><a href="#docker">Avec Docker Compose</a></li><li><a href="#ohne-docker">Sans Docker (systemd)</a></li>
       <li><a href="#anmeldung">Connexion</a></li><li><a href="#https">HTTPS et reverse proxy</a></li><li><a href="#erste-schritte">Premiers pas</a></li></ol></li>
     <li><a href="#konzepte">Notions de base</a>
       <ol><li><a href="#rechte">Clients, groupes, rôles</a></li><li><a href="#reihenfolge">Comment le broker décide</a></li><li><a href="#trennen">Quand les clients sont déconnectés</a></li><li><a href="#konfig-dateien">Où se trouve la configuration</a></li></ol></li>
@@ -205,7 +205,7 @@ se trouve dans le dépôt sous <code>docs/handbuch/fr/</code> et dans chaque ins
 
 <h3 id="voraussetzungen">Prérequis</h3>
 <ul>
-  <li>Un serveur Linux (amd64 ou arm64), avec Docker et Docker Compose <em>ou</em> avec systemd pour l'installation sans Docker.</li>
+  <li>Un serveur Linux (amd64 ou arm64), avec Docker et Docker Compose <em>ou</em> avec systemd pour l'installation sans Docker. Si Docker manque, l'<a href="#assistent">assistant d'installation</a> l'installe.</li>
   <li>512 Mo de mémoire pour l'UI&nbsp;; le broker consomme peu.</li>
   <li>Ports ouverts&nbsp;: <code>1883</code> (MQTT), <code>8883</code> (MQTT sur TLS, dès qu'un certificat existe), <code>8080</code> pour l'UI,
     ou mieux, seulement le reverse proxy sur <code>443</code>.</li>
@@ -213,8 +213,23 @@ se trouve dans le dépôt sous <code>docs/handbuch/fr/</code> et dans chaque ins
   <li>Pour un certificat&nbsp;: un domaine et un fournisseur DNS doté d'une API (acme-dns ou PowerDNS).</li>
 </ul>
 
+<h3 id="assistent">Avec l'assistant d'installation</h3>
+<p>Le plus rapide&nbsp;: un assistant dans la console, en français, anglais ou allemand. Au besoin, il installe Docker avec le script officiel
+<a href="https://get.docker.com">get.docker.com</a>, puis demande le répertoire, la version, les ports, les mots de passe du broker et de l'UI,
+la clé secrète et les reverse proxies. Il écrit ensuite <code>compose.yaml</code> et <code>.env</code>, démarre les deux conteneurs et affiche
+l'adresse, les identifiants et la clé.</p>
+<pre><code>curl -fsSL https://raw.githubusercontent.com/alexsxb/mosquitto-ui/main/deploy/install.sh -o install.sh
+sudo bash install.sh</code></pre>
+<figure><img src="img/30-installation.png" alt="L'assistant d'installation dans la console avec le récapitulatif" loading="lazy" width="1280" height="820"><figcaption>Le récapitulatif avant l'installation.</figcaption></figure>
+<ul>
+  <li>Il ne modifie rien avant <em>Oui</em> dans le récapitulatif&nbsp;; Échap demande s'il faut arrêter.</li>
+  <li>Lancé sur un hôte déjà installé, il propose une <a href="#updates">mise à jour</a> vers une autre version&nbsp;; les paramètres restent.</li>
+  <li>Son journal est <code>/var/log/mosquitto-ui-install.log</code>. Options (<code>--lang</code>, <code>--dir</code>), dépannage et désinstallation&nbsp;:
+    <a href="https://github.com/alexsxb/mosquitto-ui/blob/main/docs/en/installation.md">docs/en/installation.md</a> (en anglais).</li>
+</ul>
+
 <h3 id="docker">Avec Docker Compose</h3>
-<p>Un serveur n'a besoin que de deux fichiers du dépôt&nbsp;: <code>deploy/compose.yaml</code> et <code>deploy/env.example</code>.</p>
+<p>À la main, un serveur n'a besoin que de deux fichiers du dépôt&nbsp;: <code>deploy/compose.yaml</code> et <code>deploy/env.example</code>.</p>
 <ol class="steps">
   <li><p>Créez le répertoire et récupérez les fichiers&nbsp;:</p>
 <pre><code>sudo mkdir -p /opt/mosquitto && cd /opt/mosquitto
@@ -503,6 +518,7 @@ deny pub maison/salon/thermostat/# prio 10</code></pre>
 <p>Les erreurs s'affichent avec leur ligne sous le texte&nbsp;; tant qu'elles ne sont pas corrigées, rien ne peut être appliqué. Toutes les règles
 sont appliquées d'un coup&nbsp;: le broker les prend toutes ou aucune et déconnecte au plus une fois, et seulement si une règle d'abonnement change
 de façon à pouvoir retirer un abonnement (voir <a href="#trennen">Quand les clients sont déconnectés</a>).</p>
+<p>Fermer la boîte de dialogue avec un texte pas encore appliqué demande s'il faut l'abandonner&nbsp;; de même pour la boîte <em>Nouveau rôle</em> avec les topics en texte.</p>
 <figure><img src="img/28-role-texte.png" alt="Règles d'un rôle en texte avec des lignes collées et les modifications en dessous" loading="lazy" width="1280" height="820"><figcaption>Les règles d'un rôle en texte&nbsp;: lignes collées et, en dessous, ce qui change.</figcaption></figure>
 
 <h3 id="s-regeln">Règles</h3>
@@ -626,7 +642,7 @@ des personnes d'un fournisseur sur la page Connexion. Ces utilisateurs n'ont rie
 <h3 id="s-protokoll">Journal</h3>
 <figure><img src="img/22-protokoll.png" alt="Journal des modifications" loading="lazy" width="1280" height="820"><figcaption>Qui a modifié quoi, et quand.</figcaption></figure>
 <p>Chaque modification faite via l'UI, avec utilisateur, heure et résultat, ainsi que les connexions (avec le fournisseur), les connexions refusées et les échecs de la connexion locale. Les mots de passe, les clés
-et le contenu des messages n'y figurent jamais. Les 20&nbsp;000 dernières entrées, incluses dans la sauvegarde comme partie distincte.</p>
+et le contenu des messages n'y figurent jamais. Les 20&nbsp;000 dernières entrées, incluses dans la sauvegarde comme partie distincte. Quand toutes les règles d'un rôle sont remplacées d'un coup (<a href="#regeln-als-text">règles en texte</a>), l'entrée indique les règles nouvelles, celles qui ont disparu et celles dont la priorité ou l'effet a changé, au plus 50 de chaque.</p>
 
 <h3 id="s-handy">Sur smartphone</h3>
 <figure class="phone"><img src="img/23-handy.png" alt="Tableau de bord sur smartphone" loading="lazy" width="390" height="844"><figcaption>En bas, la barre avec Tableau de bord, Topics, Clients et Plus.</figcaption></figure>
@@ -639,6 +655,7 @@ s'ajouter à l'écran d'accueil comme une application.</p>
 <h3 id="updates">Mises à jour</h3>
 <table>
 <tr><th>Installation</th><th>Mise à jour</th></tr>
+<tr><td>Assistant</td><td>Relancez <code>sudo bash install.sh</code>, choisissez <em>mettre à jour</em> et la version. Il définit <code>MOSQUITTO_UI_VERSION</code>, récupère le <code>compose.yaml</code> correspondant (l'ancien reste en <code>compose.yaml.bak</code>) et redémarre les conteneurs.</td></tr>
 <tr><td>Docker</td><td>Définissez <code>MOSQUITTO_UI_VERSION</code> dans <code>.env</code>, puis <code>docker compose pull &amp;&amp; docker compose up -d</code>. Une nouvelle image du broker redémarre le broker.</td></tr>
 <tr><td>sans Docker</td><td>Décompressez la nouvelle archive, <code>sudo ./install.sh</code>. Le broker ne redémarre que si Mosquitto, les plugins ou l'agent ont changé. Pour revenir en arrière&nbsp;: installez l'ancienne archive de la même façon.</td></tr>
 </table>

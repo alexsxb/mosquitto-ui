@@ -123,7 +123,7 @@ main { padding: 40px 48px 120px; min-width: 0; max-width: 900px; }
     <li><a href="#ueberblick">Overview</a>
       <ol><li><a href="#funktionen">What the UI does</a></li><li><a href="#aufbau">How it is built</a></li></ol></li>
     <li><a href="#installation">Installation</a>
-      <ol><li><a href="#voraussetzungen">Requirements</a></li><li><a href="#docker">With Docker Compose</a></li><li><a href="#ohne-docker">Without Docker (systemd)</a></li>
+      <ol><li><a href="#voraussetzungen">Requirements</a></li><li><a href="#assistent">With the installer</a></li><li><a href="#docker">With Docker Compose</a></li><li><a href="#ohne-docker">Without Docker (systemd)</a></li>
       <li><a href="#anmeldung">Login</a></li><li><a href="#https">HTTPS and reverse proxy</a></li><li><a href="#erste-schritte">First steps</a></li></ol></li>
     <li><a href="#konzepte">Concepts</a>
       <ol><li><a href="#rechte">Clients, groups, roles</a></li><li><a href="#reihenfolge">How the broker decides</a></li><li><a href="#trennen">When clients get disconnected</a></li><li><a href="#konfig-dateien">Where the configuration lives</a></li></ol></li>
@@ -205,7 +205,7 @@ in the repository under <code>docs/handbuch/en/</code> and in every installation
 
 <h3 id="voraussetzungen">Requirements</h3>
 <ul>
-  <li>A Linux server (amd64 or arm64), with Docker and Docker Compose, <em>or</em> with systemd for the install without Docker.</li>
+  <li>A Linux server (amd64 or arm64), with Docker and Docker Compose, <em>or</em> with systemd for the install without Docker. When Docker is missing, the <a href="#assistent">installer</a> installs it.</li>
   <li>512 MB of RAM for the UI. The broker needs little.</li>
   <li>Open ports: <code>1883</code> (MQTT), <code>8883</code> (MQTT over TLS, once there is a certificate), <code>8080</code> for the UI,
     or better only the reverse proxy on <code>443</code>.</li>
@@ -213,8 +213,23 @@ in the repository under <code>docs/handbuch/en/</code> and in every installation
   <li>For a certificate: a domain and a DNS provider with an API (acme-dns or PowerDNS).</li>
 </ul>
 
+<h3 id="assistent">With the installer</h3>
+<p>The quickest way: a wizard in the console, in English, German or French. When needed it installs Docker with the official script
+<a href="https://get.docker.com">get.docker.com</a>, then asks for the directory, the version, the ports, the passwords of the broker and the
+UI, the secret key and the reverse proxies. It writes <code>compose.yaml</code> and <code>.env</code>, starts both containers and shows the
+address, the logins and the key.</p>
+<pre><code>curl -fsSL https://raw.githubusercontent.com/alexsxb/mosquitto-ui/main/deploy/install.sh -o install.sh
+sudo bash install.sh</code></pre>
+<figure><img src="img/30-installer.png" alt="The installer in the console with its summary" loading="lazy" width="1280" height="820"><figcaption>The summary before installing.</figcaption></figure>
+<ul>
+  <li>It changes nothing before <em>Yes</em> in the summary; Esc asks whether to stop.</li>
+  <li>Run on a host with an installation, it offers an <a href="#updates">update</a> to another version; the settings stay.</li>
+  <li>Its log is <code>/var/log/mosquitto-ui-install.log</code>. Options (<code>--lang</code>, <code>--dir</code>), troubleshooting and removing:
+    <a href="https://github.com/alexsxb/mosquitto-ui/blob/main/docs/en/installation.md">docs/en/installation.md</a>.</li>
+</ul>
+
 <h3 id="docker">With Docker Compose</h3>
-<p>A server needs only two files from the repository: <code>deploy/compose.yaml</code> and <code>deploy/env.example</code>.</p>
+<p>By hand, a server needs only two files from the repository: <code>deploy/compose.yaml</code> and <code>deploy/env.example</code>.</p>
 <ol class="steps">
   <li><p>Create a directory and fetch the files:</p>
 <pre><code>sudo mkdir -p /opt/mosquitto && cd /opt/mosquitto
@@ -501,6 +516,7 @@ deny pub home/living-room/thermostat/# prio 10</code></pre>
 <p>Errors are listed with their line below the text; until they are fixed, nothing can be applied. All rules are applied at once:
 the broker takes all or none and disconnects at most once, and only when a rule for subscribing changes in a way that can take a subscription away
 (see <a href="#trennen">When clients get disconnected</a>).</p>
+<p>Closing the dialog with text that is not applied yet asks whether to throw it away; so does the dialog <em>New role</em> with topics as text.</p>
 <figure><img src="img/28-role-text.png" alt="Rules of a role as text with pasted lines and the changes below" loading="lazy" width="1280" height="820"><figcaption>The rules of a role as text: pasted lines and, below, what changes.</figcaption></figure>
 
 <h3 id="s-regeln">Rules</h3>
@@ -624,7 +640,7 @@ These users have nothing to do with the MQTT clients.</p>
 <h3 id="s-protokoll">Audit log</h3>
 <figure><img src="img/22-protokoll.png" alt="Audit log of changes" loading="lazy" width="1280" height="820"><figcaption>Who changed what, and when.</figcaption></figure>
 <p>Every change made through the UI, with user, time and result, plus logins (with the provider), logins turned away and failed attempts of the local login. Passwords, keys
-and message payloads never appear in it. It keeps the last 20,000 entries and is a separate part in backups.</p>
+and message payloads never appear in it. It keeps the last 20,000 entries and is a separate part in backups. When all rules of a role are replaced at once (<a href="#regeln-als-text">rules as text</a>), the entry says which rules are new, which went and which got another priority or effect, up to 50 of each.</p>
 
 <h3 id="s-handy">On a phone</h3>
 <figure class="phone"><img src="img/23-handy.png" alt="Dashboard on a phone" loading="lazy" width="390" height="844"><figcaption>At the bottom, the bar with Dashboard, Topics, Clients and More.</figcaption></figure>
@@ -637,6 +653,7 @@ add the UI to the home screen as an app.</p>
 <h3 id="updates">Updates</h3>
 <table>
 <tr><th>Setup</th><th>Update</th></tr>
+<tr><td>Installer</td><td>Run <code>sudo bash install.sh</code> again, choose <em>update</em> and the version. It sets <code>MOSQUITTO_UI_VERSION</code>, fetches the matching <code>compose.yaml</code> (the old one stays as <code>compose.yaml.bak</code>) and restarts the containers.</td></tr>
 <tr><td>Docker</td><td>Set <code>MOSQUITTO_UI_VERSION</code> in <code>.env</code>, then <code>docker compose pull &amp;&amp; docker compose up -d</code>. A new broker image restarts the broker.</td></tr>
 <tr><td>without Docker</td><td>Unpack the new tarball, run <code>sudo ./install.sh</code>. The broker only restarts if Mosquitto, the plugins or the agent changed. To go back, install the old tarball the same way.</td></tr>
 </table>

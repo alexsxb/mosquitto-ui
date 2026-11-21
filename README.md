@@ -1,8 +1,11 @@
 # mosquitto-ui
 
-Small web UI for an [Eclipse Mosquitto](https://mosquitto.org/) broker: clients, groups, roles and access rules through
-the dynamic security plugin, the broker configuration, its TLS certificate from Let's Encrypt (DNS-01 through acme-dns or
-the PowerDNS API, as offered by pdnsadmin), and a migration from `password_file`, `acl_file` and `mosquitto.db`. Login through OpenID Connect. Quarkus backend, React frontend (`src/main/webui`, served through Quinoa).
+Web UI for an [Eclipse Mosquitto](https://mosquitto.org/) 2.1 broker: clients, groups, roles and access rules through the
+dynamic security plugin, topics live, bridges (with pairing of Victron GX devices), the broker configuration and its TLS
+certificate from an ACME CA (DNS-01 through acme-dns or the PowerDNS API), token login with JWTs, sessions, a trace of
+messages, message rules, the broker log, notifications by mail, encrypted backups, an audit log, and a migration from
+`password_file`, `acl_file` and `mosquitto.db`. Login with UI users of its own or identity providers (OpenID Connect,
+GitHub). Quarkus backend, React frontend (`src/main/webui`, served through Quinoa), in English, German and French.
 
 **Handbook** with screenshots, in [German](docs/handbuch/index.html), [English](docs/handbuch/en/index.html) and
 [French](docs/handbuch/fr/index.html). Every installation serves it at `/handbuch/` without a login, and the user menu links the
@@ -32,6 +35,23 @@ The tests need Docker, they run against a real broker and a real ACME server ([P
 
 ## Deployment
 
+### With the installer
+
+Details: [docs/en/installation.md](docs/en/installation.md) (German: [docs/installation.md](docs/installation.md)).
+
+```shell
+curl -fsSL https://raw.githubusercontent.com/alexsxb/mosquitto-ui/main/deploy/install.sh -o install.sh
+sudo bash install.sh
+```
+
+A wizard in the console, in English, German or French (`--lang en|de|fr`, otherwise it asks). On a host without Docker it
+offers to install it with the script of Docker (<https://get.docker.com>). Then it asks for the directory
+(`/opt/mosquitto-ui`), the version, the ports, the passwords of the broker and of the UI, the secret key and the reverse
+proxies. It writes `compose.yaml` and `.env` there, starts both containers and shows the addresses and logins. Run again, it
+updates an installation to another version and keeps its settings. Its log is `/var/log/mosquitto-ui-install.log`.
+
+### By hand
+
 A host needs `deploy/compose.yaml` and a `.env` made from `deploy/env.example`, nothing else of this repository:
 
 ```shell
@@ -47,8 +67,7 @@ new broker image restarts the broker, which disconnects its clients.
 For a configuration of your own, mount your file, see the comment in `deploy/compose.yaml`. To build the images from this
 repository, add `-f compose.yaml -f compose.build.yaml` and `--build`.
 
-The UI listens on
-port 8080 on all addresses and runs read-only as an unprivileged user; put a reverse proxy with TLS in front of it. The broker
+The UI listens on port 8080 on all addresses and runs read-only as an unprivileged user; put a reverse proxy with TLS in front of it. The broker
 publishes 1883 and 8883 directly. `MOSQUITTO_PASSWORD` has to have at least 12 characters, see below.
 
 Besides `backups` for backups to a directory, three volumes hold the data: `data` (users, retained messages, certificate), `state` (settings and account of the
@@ -581,8 +600,8 @@ discovery. Each provider gets a button on the start page; its callback address i
 | `MOSQUITTO_UI_SECRET_KEY`         | Encrypts secrets in the state directory             | generated there      |
 | `MOSQUITTO_UI_BACKUP_KEYSERVER`   | Where GPG keys of backup recipients are looked up   | `https://keys.openpgp.org` |
 
-The identity provider needs `https://<host>/*` as redirect URI and post logout redirect URI, and has to put the roles
-into a JWT access token. Behind a reverse proxy, see the commented settings in `application.properties`.
+Identity providers are set up on the page *Login*, not here, see [Login](#login). Behind a reverse proxy, the UI needs the
+`QUARKUS_HTTP_PROXY_*` settings that `deploy/compose.yaml` sets, with `TRUSTED_PROXIES` for the addresses of the proxies.
 
 ## Contributing
 

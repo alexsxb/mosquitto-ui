@@ -123,7 +123,7 @@ main { padding: 40px 48px 120px; min-width: 0; max-width: 900px; }
     <li><a href="#ueberblick">Überblick</a>
       <ol><li><a href="#funktionen">Was die UI kann</a></li><li><a href="#aufbau">Wie sie aufgebaut ist</a></li></ol></li>
     <li><a href="#installation">Installation</a>
-      <ol><li><a href="#voraussetzungen">Voraussetzungen</a></li><li><a href="#docker">Mit Docker Compose</a></li><li><a href="#ohne-docker">Ohne Docker (systemd)</a></li>
+      <ol><li><a href="#voraussetzungen">Voraussetzungen</a></li><li><a href="#assistent">Mit dem Installations-Assistenten</a></li><li><a href="#docker">Mit Docker Compose</a></li><li><a href="#ohne-docker">Ohne Docker (systemd)</a></li>
       <li><a href="#anmeldung">Anmeldung</a></li><li><a href="#https">HTTPS und Reverse Proxy</a></li><li><a href="#erste-schritte">Erste Schritte</a></li></ol></li>
     <li><a href="#konzepte">Grundbegriffe</a>
       <ol><li><a href="#rechte">Clients, Gruppen, Rollen</a></li><li><a href="#reihenfolge">Wie der Broker entscheidet</a></li><li><a href="#trennen">Wann Clients getrennt werden</a></li><li><a href="#konfig-dateien">Wo die Konfiguration steht</a></li></ol></li>
@@ -205,7 +205,7 @@ liegt im Repository unter <code>docs/handbuch/</code> und in jeder Installation 
 
 <h3 id="voraussetzungen">Voraussetzungen</h3>
 <ul>
-  <li>Ein Linux-Server (amd64 oder arm64), mit Docker und Docker Compose <em>oder</em> mit systemd für die Installation ohne Docker.</li>
+  <li>Ein Linux-Server (amd64 oder arm64), mit Docker und Docker Compose <em>oder</em> mit systemd für die Installation ohne Docker. Fehlt Docker, installiert es der <a href="#assistent">Installations-Assistent</a>.</li>
   <li>512 MB Arbeitsspeicher für die UI, der Broker braucht wenig.</li>
   <li>Offene Ports: <code>1883</code> (MQTT), <code>8883</code> (MQTT über TLS, sobald ein Zertifikat da ist), <code>8080</code> für die UI
     oder besser nur der Reverse Proxy auf <code>443</code>.</li>
@@ -213,8 +213,23 @@ liegt im Repository unter <code>docs/handbuch/</code> und in jeder Installation 
   <li>Für ein Zertifikat: eine Domain und ein DNS-Anbieter mit API (acme-dns oder PowerDNS).</li>
 </ul>
 
+<h3 id="assistent">Mit dem Installations-Assistenten</h3>
+<p>Am schnellsten: ein Assistent in der Konsole, auf Deutsch, Englisch oder Französisch. Er installiert bei Bedarf Docker mit dem offiziellen
+Skript <a href="https://get.docker.com">get.docker.com</a> und fragt dann Verzeichnis, Version, Ports, die Passwörter von Broker und UI, den
+geheimen Schlüssel und die Reverse Proxies ab. Danach schreibt er <code>compose.yaml</code> und <code>.env</code>, startet beide Container und zeigt
+Adresse, Logins und Schlüssel.</p>
+<pre><code>curl -fsSL https://raw.githubusercontent.com/alexsxb/mosquitto-ui/main/deploy/install.sh -o install.sh
+sudo bash install.sh</code></pre>
+<figure><img src="img/30-installation.png" alt="Installations-Assistent in der Konsole mit der Zusammenfassung" loading="lazy" width="1280" height="820"><figcaption>Die Zusammenfassung vor der Installation.</figcaption></figure>
+<ul>
+  <li>Erst nach <em>Ja</em> in der Zusammenfassung ändert er etwas; Esc fragt, ob abgebrochen werden soll.</li>
+  <li>Läuft er auf einem Host mit Installation, bietet er ein <a href="#updates">Update</a> auf eine andere Version an; die Einstellungen bleiben.</li>
+  <li>Sein Log steht in <code>/var/log/mosquitto-ui-install.log</code>. Optionen (<code>--lang</code>, <code>--dir</code>), Fehlersuche und Entfernen:
+    <a href="https://github.com/alexsxb/mosquitto-ui/blob/main/docs/installation.md">docs/installation.md</a>.</li>
+</ul>
+
 <h3 id="docker">Mit Docker Compose</h3>
-<p>Ein Server braucht nur zwei Dateien aus dem Repository: <code>deploy/compose.yaml</code> und <code>deploy/env.example</code>.</p>
+<p>Von Hand braucht ein Server nur zwei Dateien aus dem Repository: <code>deploy/compose.yaml</code> und <code>deploy/env.example</code>.</p>
 <ol class="steps">
   <li><p>Verzeichnis anlegen und die Dateien holen:</p>
 <pre><code>sudo mkdir -p /opt/mosquitto && cd /opt/mosquitto
@@ -504,6 +519,7 @@ deny pub haus/wohnzimmer/thermostat/# prio 10</code></pre>
 <p>Fehler stehen mit ihrer Zeile unter dem Text, bis sie behoben sind, lässt sich nichts übernehmen. Übernommen werden alle Regeln auf einmal:
 der Broker nimmt alle oder keine und trennt höchstens einmal, und nur wenn sich eine Regel zum Abonnieren so ändert, dass sie ein Abo wegnehmen kann
 (siehe <a href="#trennen">Wann Clients getrennt werden</a>).</p>
+<p>Wer den Dialog mit Text schließt, der noch nicht übernommen ist, wird gefragt, ob er ihn verwerfen will; ebenso beim Dialog <em>Neue Rolle</em> mit Topics als Text.</p>
 <figure><img src="img/28-rolle-text.png" alt="Regeln einer Rolle als Text mit eingefügten Zeilen und den Änderungen darunter" loading="lazy" width="1280" height="820"><figcaption>Die Regeln einer Rolle als Text: eingefügte Zeilen und darunter, was sich ändert.</figcaption></figure>
 
 <h3 id="s-regeln">Regeln</h3>
@@ -627,7 +643,7 @@ Personen eines Providers zuordnen. Diese Benutzer haben nichts mit den MQTT-Clie
 <h3 id="s-protokoll">Protokoll</h3>
 <figure><img src="img/22-protokoll.png" alt="Protokoll der Änderungen" loading="lazy" width="1280" height="820"><figcaption>Wer wann was geändert hat.</figcaption></figure>
 <p>Jede Änderung über die UI mit Benutzer, Zeit und Ergebnis, dazu Anmeldungen (mit Provider), abgewiesene Anmeldungen und Fehlversuche des lokalen Logins. Passwörter, Schlüssel
-und Werte von Nachrichten stehen nie darin. Die letzten 20 000 Einträge, im Backup als eigener Teil.</p>
+und Werte von Nachrichten stehen nie darin. Die letzten 20 000 Einträge, im Backup als eigener Teil. Werden alle Regeln einer Rolle auf einmal ersetzt (<a href="#regeln-als-text">Regeln als Text</a>), steht dabei, welche Regeln neu sind, welche wegfielen und welche eine andere Priorität oder Wirkung bekamen, je höchstens 50.</p>
 
 <h3 id="s-handy">Am Handy</h3>
 <figure class="phone"><img src="img/23-handy.png" alt="Dashboard am Handy" loading="lazy" width="390" height="844"><figcaption>Unten die Leiste mit Dashboard, Topics, Clients und Mehr.</figcaption></figure>
@@ -640,6 +656,7 @@ die UI als App auf den Startbildschirm legen.</p>
 <h3 id="updates">Updates</h3>
 <table>
 <tr><th>Setup</th><th>Update</th></tr>
+<tr><td>Assistent</td><td><code>sudo bash install.sh</code> erneut starten, <em>aktualisieren</em> wählen, Version angeben. Er setzt <code>MOSQUITTO_UI_VERSION</code>, holt die passende <code>compose.yaml</code> (die alte bleibt als <code>compose.yaml.bak</code>) und startet die Container neu.</td></tr>
 <tr><td>Docker</td><td><code>MOSQUITTO_UI_VERSION</code> in <code>.env</code> setzen, dann <code>docker compose pull &amp;&amp; docker compose up -d</code>. Ein neues Broker-Image startet den Broker neu.</td></tr>
 <tr><td>ohne Docker</td><td>neuen Tarball auspacken, <code>sudo ./install.sh</code>. Der Broker startet nur neu, wenn sich Mosquitto, die Plugins oder der Agent geändert haben. Zurück: den alten Tarball genauso installieren.</td></tr>
 </table>
