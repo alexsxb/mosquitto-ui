@@ -158,7 +158,7 @@ se trouve dans le dépôt sous <code>docs/handbuch/fr/</code> et dans chaque ins
   <div class="card"><h4>Accès</h4><p>Clients, groupes et rôles de Dynamic Security, un testeur d'ACL, connexion par jetons d'accès (JWT).</p></div>
   <div class="card"><h4>En direct</h4><p>Arbre des topics avec valeurs et graphiques, sessions de chaque client, enregistrement de clients précis, log du broker.</p></div>
   <div class="card"><h4>Broker</h4><p>Options et listeners vérifiés avant application, règles de messages, ponts avec appairage Victron GX.</p></div>
-  <div class="card"><h4>TLS</h4><p>Certificats via ACME (Let's Encrypt, ZeroSSL, Google) avec challenge DNS, renouvellement automatique et listener TLS.</p></div>
+  <div class="card"><h4>TLS</h4><p>Certificats via ACME (Let's Encrypt, ZeroSSL, Google) avec challenge DNS ou HTTP, renouvellement automatique et listener TLS.</p></div>
   <div class="card"><h4>Exploitation sereine</h4><p>Sauvegardes chiffrées vers SFTP, FTP, S3, un répertoire ou par e-mail, alertes par e-mail en cas de panne ou de lignes de log suspectes, journal de toutes les modifications.</p></div>
   <div class="card"><h4>Migration</h4><p>Import de <code>password_file</code>, <code>acl_file</code>, <code>mosquitto.conf</code> et <code>mosquitto.db</code> existants.</p></div>
 </div>
@@ -210,7 +210,7 @@ se trouve dans le dépôt sous <code>docs/handbuch/fr/</code> et dans chaque ins
   <li>Ports ouverts&nbsp;: <code>1883</code> (MQTT), <code>8883</code> (MQTT sur TLS, dès qu'un certificat existe), <code>8080</code> pour l'UI,
     ou mieux, seulement le reverse proxy sur <code>443</code>.</li>
   <li>Pour la connexion, rien de plus (utilisateurs UI avec mot de passe). Si vous le souhaitez, ajoutez un fournisseur d'identité&nbsp;: Keycloak, authentik et d'autres avec OpenID Connect, ou des comptes Google, Microsoft, GitHub et consorts.</li>
-  <li>Pour un certificat&nbsp;: un domaine et un fournisseur DNS doté d'une API (acme-dns ou PowerDNS).</li>
+  <li>Pour un certificat&nbsp;: un domaine et un fournisseur DNS doté d'une API (acme-dns ou PowerDNS), ou le port 80 accessible depuis l'extérieur (HTTP-01).</li>
 </ul>
 
 <h3 id="assistent">Avec l'assistant d'installation</h3>
@@ -575,9 +575,18 @@ de façon à pouvoir retirer un abonnement (voir <a href="#trennen">Quand les cl
 <figure><img src="img/17-zertifikat.png" alt="Page Certificat" loading="lazy" width="1280" height="820"><figcaption>Encore sans certificat.</figcaption></figure>
 <ul>
   <li>Demandé via ACME avec challenge DNS, par acme-dns ou l'API PowerDNS. AC&nbsp;: Let's Encrypt (d'abord en staging&nbsp;!), ZeroSSL, Google Trust Services, et toute autre par son adresse.</li>
+  <li><strong>HTTP-01</strong> fonctionne sans API DNS&nbsp;: l'AC interroge <code>http://&lt;domaine&gt;/.well-known/acme-challenge/…</code> sur le port 80, et l'UI répond elle-même pendant la commande. Le port 80 doit mener de l'extérieur à l'UI (port 8080), via un reverse proxy ou une redirection de port. Pas de wildcard, et rien pour les brokers uniquement sur le LAN.</li>
   <li>Certificats regroupés en <strong>ensembles</strong> (p. ex. staging et production)&nbsp;; un seul est actif et se renouvelle de lui-même dans le dernier tiers de sa validité.</li>
   <li><em>Configurer automatiquement le listener TLS</em> crée le listener sur 8883 au premier certificat (un redémarrage). Les renouvellements passent par un rechargement, les clients restent connectés.</li>
   <li>Seul le broker reçoit la clé&nbsp;; l'UI ne peut pas la relire.</li>
+</ul>
+<figure><img src="img/31-erreichbarkeit.png" alt="Carte Accessibilité depuis l'extérieur avec DS-Lite et les ouvertures IPv6 nécessaires" loading="lazy" width="1280" height="820"><figcaption>Une FRITZ!Box en DS-Lite&nbsp;: accessible depuis l'extérieur uniquement en IPv6.</figcaption></figure>
+<p><strong>Accessibilité depuis l'extérieur</strong> interroge le routeur du LAN (<code>fritz.box</code> par défaut) via son état UPnP, sans identifiants et sans rien modifier&nbsp;:</p>
+<ul>
+  <li>Type d'IPv4&nbsp;: publique, CGNAT du fournisseur, privée derrière un autre NAT (p. ex. mobile), DS-Lite ou aucune&nbsp;; ainsi que l'adresse et le préfixe IPv6.</li>
+  <li>Le résultat (double pile, IPv4 seule, IPv6 seule, DS-Lite, inaccessible) et les redirections nécessaires pour MQTT sur TLS, avec un set HTTP-01 aussi le port 80, séparément pour IPv4 et IPv6.</li>
+  <li>Seule la FRITZ!Box indique DS-Lite et IPv6, les autres routeurs seulement l'IPv4. Sur la FRITZ!Box, <em>Transmettre les informations d'état par UPnP</em> doit être activé (Réseau domestique &gt; Réseau &gt; Paramètres réseau).</li>
+  <li>Les redirections se configurent à la main&nbsp;: Internet &gt; Partages &gt; Partages de ports. Pour IPv6, le domaine a besoin d'un enregistrement AAAA, et Docker d'IPv6.</li>
 </ul>
 
 <h3 id="s-backups">Sauvegardes</h3>

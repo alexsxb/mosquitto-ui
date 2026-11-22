@@ -158,7 +158,7 @@ in the repository under <code>docs/handbuch/en/</code> and in every installation
   <div class="card"><h4>Access</h4><p>Clients, groups and roles of Dynamic Security, an access checker, login with access tokens (JWT).</p></div>
   <div class="card"><h4>Live view</h4><p>Topic tree with values and charts, the sessions of every client, traces of single clients, the broker log.</p></div>
   <div class="card"><h4>Broker</h4><p>Options and listeners, checked before they are applied, message rules, bridges with Victron GX pairing.</p></div>
-  <div class="card"><h4>TLS</h4><p>Certificates via ACME (Let's Encrypt, ZeroSSL, Google) with DNS challenge, automatic renewal and a TLS listener.</p></div>
+  <div class="card"><h4>TLS</h4><p>Certificates via ACME (Let's Encrypt, ZeroSSL, Google) with DNS or HTTP challenge, automatic renewal and a TLS listener.</p></div>
   <div class="card"><h4>Safe operation</h4><p>Encrypted backups to SFTP, FTP, S3, a directory or mail; mails on outages and suspicious log lines; an audit log of all changes.</p></div>
   <div class="card"><h4>Migration</h4><p>Import of an existing <code>password_file</code>, <code>acl_file</code>, <code>mosquitto.conf</code> and <code>mosquitto.db</code>.</p></div>
 </div>
@@ -210,7 +210,7 @@ in the repository under <code>docs/handbuch/en/</code> and in every installation
   <li>Open ports: <code>1883</code> (MQTT), <code>8883</code> (MQTT over TLS, once there is a certificate), <code>8080</code> for the UI,
     or better only the reverse proxy on <code>443</code>.</li>
   <li>For login, nothing else (UI users with a password). If you like, add an identity provider: Keycloak, authentik and others with OpenID Connect, or accounts at Google, Microsoft, GitHub and the like.</li>
-  <li>For a certificate: a domain and a DNS provider with an API (acme-dns or PowerDNS).</li>
+  <li>For a certificate: a domain and a DNS provider with an API (acme-dns or PowerDNS), or port 80 reachable from outside (HTTP-01).</li>
 </ul>
 
 <h3 id="assistent">With the installer</h3>
@@ -573,9 +573,18 @@ the broker takes all or none and disconnects at most once, and only when a rule 
 <figure><img src="img/17-zertifikat.png" alt="Certificate page" loading="lazy" width="1280" height="820"><figcaption>No certificate yet.</figcaption></figure>
 <ul>
   <li>Ordered via ACME with DNS challenge through acme-dns or the PowerDNS API. CAs: Let's Encrypt (try staging first!), ZeroSSL, Google Trust Services, any other by URL.</li>
+  <li><strong>HTTP-01</strong> works without a DNS API: the CA fetches <code>http://&lt;domain&gt;/.well-known/acme-challenge/…</code> on port 80, and the UI answers itself while the order runs. Port 80 has to lead from outside to the UI (port 8080), through a reverse proxy or a port forwarding. No wildcards, and nothing for brokers that are only in the LAN.</li>
   <li>Certificates come in <strong>sets</strong> (e.g. staging and production). One is active and renews itself in the last third of its lifetime.</li>
   <li><em>Set up the TLS listener automatically</em> creates the listener on 8883 with the first certificate (one restart). Renewals come with a reload; clients stay connected.</li>
   <li>Only the broker gets the private key; the UI cannot read it back.</li>
+</ul>
+<figure><img src="img/31-erreichbarkeit.png" alt="Card Reachability from outside with DS-Lite and the IPv6 openings needed" loading="lazy" width="1280" height="820"><figcaption>A FRITZ!Box with DS-Lite: reachable from outside over IPv6 only.</figcaption></figure>
+<p><strong>Reachability from outside</strong> asks the router in the LAN (<code>fritz.box</code> by default) through its UPnP status, without a login and without changing anything:</p>
+<ul>
+  <li>Kind of IPv4: public, carrier-grade NAT, private behind another NAT (e.g. mobile), DS-Lite or none; also the IPv6 address and prefix.</li>
+  <li>From that the result (dual stack, IPv4 only, IPv6 only, DS-Lite, not reachable) and the forwardings MQTT over TLS needs, with an HTTP-01 set also port 80, separately for IPv4 and IPv6.</li>
+  <li>Only a FRITZ!Box tells DS-Lite and IPv6, other routers only the IPv4. On the FRITZ!Box, <em>Transmit status information over UPnP</em> has to be on (Home Network &gt; Network &gt; Network Settings).</li>
+  <li>You set up the forwardings yourself: Internet &gt; Permit Access &gt; Port Sharing. For IPv6 the domain needs an AAAA record, and Docker needs IPv6.</li>
 </ul>
 
 <h3 id="s-backups">Backups</h3>

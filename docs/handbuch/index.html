@@ -158,7 +158,7 @@ liegt im Repository unter <code>docs/handbuch/</code> und in jeder Installation 
   <div class="card"><h4>Zugriff</h4><p>Clients, Gruppen und Rollen von Dynamic Security, ein ACL-Tester, Anmeldung mit Access-Tokens (JWT).</p></div>
   <div class="card"><h4>Live-Blick</h4><p>Topic-Baum mit Werten und Grafiken, Sitzungen jedes Clients, Aufzeichnung einzelner Clients, das Log des Brokers.</p></div>
   <div class="card"><h4>Broker</h4><p>Optionen und Listener mit Prüfung vor dem Übernehmen, Nachrichtenregeln, Bridges mit Victron-GX-Pairing.</p></div>
-  <div class="card"><h4>TLS</h4><p>Zertifikate per ACME (Let's Encrypt, ZeroSSL, Google) mit DNS-Challenge, automatische Verlängerung und TLS-Listener.</p></div>
+  <div class="card"><h4>TLS</h4><p>Zertifikate per ACME (Let's Encrypt, ZeroSSL, Google) mit DNS- oder HTTP-Challenge, automatische Verlängerung und TLS-Listener.</p></div>
   <div class="card"><h4>Sicherheit im Betrieb</h4><p>Verschlüsselte Backups nach SFTP, FTP, S3, Verzeichnis oder Mail, Mails bei Ausfällen und auffälligen Log-Zeilen, Protokoll aller Änderungen.</p></div>
   <div class="card"><h4>Umzug</h4><p>Import vorhandener <code>password_file</code>, <code>acl_file</code>, <code>mosquitto.conf</code> und <code>mosquitto.db</code>.</p></div>
 </div>
@@ -210,7 +210,7 @@ liegt im Repository unter <code>docs/handbuch/</code> und in jeder Installation 
   <li>Offene Ports: <code>1883</code> (MQTT), <code>8883</code> (MQTT über TLS, sobald ein Zertifikat da ist), <code>8080</code> für die UI
     oder besser nur der Reverse Proxy auf <code>443</code>.</li>
   <li>Für die Anmeldung nichts weiter (UI-Benutzer mit Passwort). Wer will, nimmt dazu einen Identity Provider: Keycloak, authentik und andere mit OpenID Connect, oder Konten bei Google, Microsoft, GitHub und Co.</li>
-  <li>Für ein Zertifikat: eine Domain und ein DNS-Anbieter mit API (acme-dns oder PowerDNS).</li>
+  <li>Für ein Zertifikat: eine Domain und ein DNS-Anbieter mit API (acme-dns oder PowerDNS), oder Port 80 von außen erreichbar (HTTP-01).</li>
 </ul>
 
 <h3 id="assistent">Mit dem Installations-Assistenten</h3>
@@ -576,9 +576,18 @@ der Broker nimmt alle oder keine und trennt höchstens einmal, und nur wenn sich
 <figure><img src="img/17-zertifikat.png" alt="Seite Zertifikat" loading="lazy" width="1280" height="820"><figcaption>Noch ohne Zertifikat.</figcaption></figure>
 <ul>
   <li>Bestellt per ACME mit DNS-Challenge über acme-dns oder die PowerDNS-API. CAs: Let's Encrypt (erst Staging!), ZeroSSL, Google Trust Services, jede andere per Adresse.</li>
+  <li><strong>HTTP-01</strong> geht ohne DNS-API: Die CA ruft <code>http://&lt;Domain&gt;/.well-known/acme-challenge/…</code> auf Port 80 ab, und die UI antwortet selbst, solange die Bestellung läuft. Port 80 muss dafür von außen zur UI (Port 8080) führen, per Reverse Proxy oder Portfreigabe. Keine Wildcards, und nichts für Broker, die nur im LAN stehen.</li>
   <li>Zertifikate in <strong>Sets</strong> (z. B. Staging und Produktion), eines ist aktiv und verlängert sich im letzten Drittel seiner Laufzeit selbst.</li>
   <li><em>TLS-Listener automatisch einrichten</em> legt beim ersten Zertifikat den Listener auf 8883 an (einmal Neustart). Verlängerungen kommen per Reload, Clients bleiben verbunden.</li>
   <li>Den Schlüssel bekommt nur der Broker; die UI kann ihn nicht zurücklesen.</li>
+</ul>
+<figure><img src="img/31-erreichbarkeit.png" alt="Karte Erreichbarkeit von außen mit DS-Lite und den nötigen IPv6-Freigaben" loading="lazy" width="1280" height="820"><figcaption>Eine FRITZ!Box mit DS-Lite: von außen nur über IPv6.</figcaption></figure>
+<p><strong>Erreichbarkeit von außen</strong> fragt den Router im LAN (Standard <code>fritz.box</code>) über den UPnP-Status, ohne Anmeldung und ohne etwas zu ändern:</p>
+<ul>
+  <li>Art der IPv4: öffentlich, CGNAT des Anbieters, privat hinter weiterem NAT (z. B. Mobilfunk), DS-Lite oder keine; dazu IPv6-Adresse und Präfix.</li>
+  <li>Daraus das Ergebnis (Dual-Stack, nur IPv4, nur IPv6, DS-Lite, nicht erreichbar) und die nötigen Freigaben für MQTT über TLS, bei einem HTTP-01-Set auch für Port 80, getrennt nach IPv4 und IPv6.</li>
+  <li>DS-Lite und IPv6 kennt nur die FRITZ!Box, andere Router nennen nur die IPv4. In der FRITZ!Box muss <em>Statusinformationen über UPnP übertragen</em> an sein (Heimnetz &gt; Netzwerk &gt; Netzwerkeinstellungen).</li>
+  <li>Die Freigaben richtest du selbst ein: Internet &gt; Freigaben &gt; Portfreigaben. Für IPv6 braucht die Domain einen AAAA-Eintrag, und Docker muss IPv6 haben.</li>
 </ul>
 
 <h3 id="s-backups">Backups</h3>
