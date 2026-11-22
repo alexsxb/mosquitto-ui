@@ -467,6 +467,31 @@ class CertificateTest {
     }
 
     @Test
+    @Order(36)
+    void http01IsAnsweredByTheUi() {
+        Map<String, Object> settings = settings("HTTP01", null, List.of("*.example.test"), "EC");
+        settings.remove("token");
+        settings.put("directory", PebbleResource.directory(PebbleResource.pebbleHttp));
+        given().contentType(ContentType.JSON).body(form("web", settings)).post("/api/certificate/sets").then().statusCode(409)
+                .body("code", equalTo("wildcard_needs_dns"));
+        settings.put("domains", List.of(PebbleResource.HTTP_DOMAIN));
+        save("web", settings);
+        given().get("/api/certificate").then().body("sets.find { it.name == 'web' }.settings.url", nullValue());
+        issue("web");
+        given().get("/api/certificate").then().body("sets.find { it.name == 'web' }.certificate.domains", hasItems(PebbleResource.HTTP_DOMAIN));
+        // nothing is handed out once the order is done
+        given().get("/.well-known/acme-challenge/unknown").then().statusCode(404);
+        given().delete("/api/certificate/sets/" + id("web")).then().statusCode(204);
+    }
+
+    @Test
+    void aDnsApiNeedsItsAddress() {
+        Map<String, Object> settings = settings("PDNS", " ", List.of("example.test"), "EC");
+        given().contentType(ContentType.JSON).body(form("no-address", settings)).post("/api/certificate/sets").then().statusCode(409)
+                .body("code", equalTo("url_required"));
+    }
+
+    @Test
     @Order(40)
     void resetLeavesNoCertificate() throws Exception {
         putConfig("");

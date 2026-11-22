@@ -4,6 +4,23 @@
  */
 
 export interface paths {
+    "/.well-known/acme-challenge/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Answer */
+        get: operations["answer"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/access": {
         parameters: {
             query?: never;
@@ -1282,6 +1299,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/router": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Router */
+        get: operations["getRouter"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/rules": {
         parameters: {
             query?: never;
@@ -1965,7 +1999,7 @@ export interface components {
         };
         CertificateSettings: {
             provider: string;
-            url: string;
+            url?: string;
             token?: string;
             apiUser?: string;
             subdomain?: string;
@@ -2560,6 +2594,21 @@ export interface components {
             acls: components["schemas"]["Acl"][];
             locked: boolean;
         };
+        RouterInfo: {
+            host: string;
+            model: string;
+            accessType: string;
+            connectionStatus: string;
+            externalIPv4: string;
+            ipv4Kind: string;
+            dsLite: boolean;
+            externalIPv6: string;
+            ipv6Prefix: string;
+            /** Format: int32 */
+            ipv6PrefixLength: number;
+            portMappingAllowed: boolean;
+            ipv6Firewall: boolean;
+        };
         /** @enum {string} */
         RuleAction: "drop" | "disconnect";
         RuleStats: {
@@ -2943,6 +2992,28 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    answer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/plain": string;
+                };
+            };
+        };
+    };
     getAccess: {
         parameters: {
             query?: never;
@@ -5300,6 +5371,28 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    getRouter: {
+        parameters: {
+            query?: {
+                host?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RouterInfo"];
+                };
             };
         };
     };

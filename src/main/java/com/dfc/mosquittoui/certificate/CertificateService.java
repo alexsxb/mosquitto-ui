@@ -49,14 +49,16 @@ import org.shredzone.acme4j.Authorization;
 import org.shredzone.acme4j.Order;
 import org.shredzone.acme4j.Session;
 import org.shredzone.acme4j.Status;
+import org.shredzone.acme4j.challenge.Challenge;
 import org.shredzone.acme4j.challenge.Dns01Challenge;
+import org.shredzone.acme4j.challenge.Http01Challenge;
 import org.shredzone.acme4j.exception.AcmeException;
 import org.shredzone.acme4j.util.KeyPairUtils;
 
 /**
- * The TLS certificates of the broker, as sets of settings and certificate of which one is active. Ordered with DNS-01 through
- * the API of the DNS server, in the background as the records need time to spread, and handed to the agent, which keeps the key
- * of each set and reloads the broker without disconnecting clients.
+ * The TLS certificates of the broker, as sets of settings and certificate of which one is active. Ordered in the background with
+ * DNS-01 through the API of the DNS server, as the records need time to spread, or with HTTP-01, answered by the UI itself, and
+ * handed to the agent, which keeps the key of each set and reloads the broker without disconnecting clients.
  */
 @ApplicationScoped
 public class CertificateService {
@@ -68,6 +70,7 @@ public class CertificateService {
     /** Renew in the last third of the lifetime, which also fits shorter certificates. */
     private static final int RENEWAL_DIVISOR = 3;
     private static final int DEFAULT_TLS_PORT = 8883;
+    static final String HTTP01 = "HTTP01";
 
     @Inject
     CertificateStore store;
@@ -89,6 +92,9 @@ public class CertificateService {
 
     @Inject
     MailService mail;
+
+    @Inject
+    Http01Tokens http01;
 
     /** A set with all that belongs to it, for a backup; certificate and key are null where the broker holds them or there are none. */
     public record SetBackup(StoredSet set, String accountKey, String chain, String key) {
@@ -151,9 +157,17 @@ public class CertificateService {
 
     /** Without a token or a key in the request, the stored one stays. */
     private static CertificateSettings merged(CertificateSettings settings, CertificateSettings old) {
+        boolean http = HTTP01.equals(settings.provider());
+        if (!http && blank(settings.url())) {
+            throw new CertificateException("url_required", "The DNS API needs an address");
+        }
+        // the CA only takes a wildcard with DNS-01
+        if (http && settings.domains().stream().anyMatch(domain -> domain.strip().startsWith("*"))) {
+            throw new CertificateException("wildcard_needs_dns", "A wildcard needs DNS-01");
+        }
         String token = blank(settings.token()) ? (old == null ? null : old.token()) : settings.token().strip();
         String eabKey = blank(settings.eabHmacKey()) ? (old == null ? null : old.eabHmacKey()) : settings.eabHmacKey().strip();
-        return new CertificateSettings(settings.provider(), settings.url().strip(), token, settings.apiUser(), settings.subdomain(),
+        return new CertificateSettings(settings.provider(), http ? null : settings.url().strip(), http ? null : token, settings.apiUser(), settings.subdomain(),
                 settings.domains().stream().map(String::strip).toList(), settings.email(), settings.directory().strip(), settings.keyType(),
                 settings.propagationSeconds(), settings.autoRenew(), settings.acceptTerms(), settings.tlsListener(), settings.tlsPort(),
                 blank(settings.eabKeyId()) ? null : settings.eabKeyId().strip(), eabKey);
@@ -307,7 +321,7 @@ public class CertificateService {
 
     private void issue(String id, boolean renewal) {
         CertificateSettings settings = set(id).settings();
-        if (settings.token() == null) {
+        if (settings.token() == null && !HTTP01.equals(settings.provider())) {
             throw new CertificateException("not_configured", "No API token for the certificate yet");
         }
         if (!settings.acceptTerms()) {
@@ -396,40 +410,10 @@ public class CertificateService {
         Order order = account.newOrder().domains(settings.domains()).create();
 
         List<Authorization> pending = order.getAuthorizations().stream().filter(auth -> auth.getStatus() != Status.VALID).toList();
-        DnsChallenge dns = dns(settings);
-        Set<String> names = new LinkedHashSet<>();
-        try {
-            step = "dns";
-            List<Dns01Challenge> challenges = new ArrayList<>();
-            for (Authorization authorization : pending) {
-                Dns01Challenge challenge = authorization.findChallenge(Dns01Challenge.class)
-                        .orElseThrow(() -> new AcmeException("The CA offers no DNS-01 challenge"));
-                String domain = authorization.getIdentifier().getDomain();
-                names.add(domain);
-                dns.set(domain, challenge.getDigest());
-                challenges.add(challenge);
-            }
-            if (!challenges.isEmpty()) {
-                step = "propagation";
-                Thread.sleep(Duration.ofSeconds(settings.propagationSeconds()));
-            }
-            step = "validation";
-            for (Dns01Challenge challenge : challenges) {
-                challenge.trigger();
-            }
-            for (Dns01Challenge challenge : challenges) {
-                if (challenge.waitForCompletion(VALIDATION_TIMEOUT) != Status.VALID) {
-                    throw new AcmeException("Validation failed: " + challenge.getError().map(Object::toString).orElse("no reason given"));
-                }
-            }
-        } finally {
-            for (String name : names) {
-                try {
-                    dns.clear(name);
-                } catch (IOException e) {
-                    LOG.warnf("Challenge of %s not removed: %s", name, e.getMessage());
-                }
-            }
+        if (HTTP01.equals(settings.provider())) {
+            validateHttp(pending);
+        } else {
+            validateDns(settings, pending);
         }
 
         step = "certificate";
@@ -448,6 +432,65 @@ public class CertificateService {
         if (goesLive && settings.tlsListener()) {
             step = "listener";
             setUpListener(port(settings), null);
+        }
+    }
+
+    private void validateDns(CertificateSettings settings, List<Authorization> pending) throws Exception {
+        DnsChallenge dns = dns(settings);
+        Set<String> names = new LinkedHashSet<>();
+        try {
+            step = "dns";
+            List<Dns01Challenge> challenges = new ArrayList<>();
+            for (Authorization authorization : pending) {
+                Dns01Challenge challenge = authorization.findChallenge(Dns01Challenge.class)
+                        .orElseThrow(() -> new AcmeException("The CA offers no DNS-01 challenge"));
+                String domain = authorization.getIdentifier().getDomain();
+                names.add(domain);
+                dns.set(domain, challenge.getDigest());
+                challenges.add(challenge);
+            }
+            if (!challenges.isEmpty()) {
+                step = "propagation";
+                Thread.sleep(Duration.ofSeconds(settings.propagationSeconds()));
+            }
+            validate(challenges);
+        } finally {
+            for (String name : names) {
+                try {
+                    dns.clear(name);
+                } catch (IOException e) {
+                    LOG.warnf("Challenge of %s not removed: %s", name, e.getMessage());
+                }
+            }
+        }
+    }
+
+    /** The answers are only there while the order runs: the UI hands out nothing else on that path. */
+    private void validateHttp(List<Authorization> pending) throws Exception {
+        List<Http01Challenge> challenges = new ArrayList<>();
+        try {
+            for (Authorization authorization : pending) {
+                String domain = authorization.getIdentifier().getDomain();
+                Http01Challenge challenge = authorization.findChallenge(Http01Challenge.class)
+                        .orElseThrow(() -> new AcmeException("The CA offers no HTTP-01 challenge for " + domain));
+                http01.put(challenge.getToken(), challenge.getAuthorization());
+                challenges.add(challenge);
+            }
+            validate(challenges);
+        } finally {
+            challenges.forEach(challenge -> http01.remove(challenge.getToken()));
+        }
+    }
+
+    private void validate(List<? extends Challenge> challenges) throws Exception {
+        step = "validation";
+        for (Challenge challenge : challenges) {
+            challenge.trigger();
+        }
+        for (Challenge challenge : challenges) {
+            if (challenge.waitForCompletion(VALIDATION_TIMEOUT) != Status.VALID) {
+                throw new AcmeException("Validation failed: " + challenge.getError().map(Object::toString).orElse("no reason given"));
+            }
         }
     }
 

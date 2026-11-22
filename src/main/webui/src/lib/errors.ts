@@ -4,7 +4,7 @@ import { toast } from "sonner"
 import { ApiError } from "@/api/client"
 
 /** Errors whose message from the server tells what exactly is wrong. */
-const detailed = ["validation", "broker_rejected", "config_rejected", "invalid_file", "bridge_loop", "listener_failed", "victron_unreachable"]
+const detailed = ["validation", "broker_rejected", "config_rejected", "invalid_file", "bridge_loop", "listener_failed", "victron_unreachable", "router_unreachable"]
 
 /** Translated message for an error; validation and backend errors include the server's details. */
 export function useErrorMessage() {

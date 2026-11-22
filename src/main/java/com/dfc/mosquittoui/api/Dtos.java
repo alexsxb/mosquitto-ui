@@ -380,7 +380,7 @@ public final class Dtos {
     }
 
     /** token, eabHmacKey: only sent to change them, they are never returned. eabKeyId, eabHmacKey: of the account at a CA that needs one. */
-    public record CertificateSettings(@NotNull @Pattern(regexp = "ACME_DNS|PDNS") String provider, @NotBlank String url, String token,
+    public record CertificateSettings(@NotNull @Pattern(regexp = "ACME_DNS|PDNS|HTTP01") String provider, String url, String token,
             String apiUser, String subdomain, @NotEmpty List<@NotBlank String> domains, String email, @NotBlank String directory,
             @NotNull @Pattern(regexp = "EC|RSA") String keyType, @Min(0) @Max(3600) int propagationSeconds, boolean autoRenew,
             boolean acceptTerms, boolean tlsListener, @Min(1) @Max(65535) Integer tlsPort, String eabKeyId, String eabHmacKey) {
@@ -408,5 +408,13 @@ public final class Dtos {
      */
     public record CertificateView(boolean available, List<CertificateSetView> sets, CertificateInfo certificate, CertificateJob job, String certfile,
             String keyfile, Integer tlsPort) {
+    }
+
+    /**
+     * The internet connection of the router. ipv4Kind: PUBLIC, SHARED (carrier-grade NAT), PRIVATE (behind another NAT), DS_LITE or
+     * NONE. Fields the router does not tell are null; portMappingAllowed: whether devices may open ports themselves over UPnP.
+     */
+    public record RouterInfo(String host, String model, String accessType, String connectionStatus, String externalIPv4, String ipv4Kind,
+            boolean dsLite, String externalIPv6, String ipv6Prefix, Integer ipv6PrefixLength, Boolean portMappingAllowed, boolean ipv6Firewall) {
     }
 }

@@ -7,6 +7,7 @@ import { toast } from "sonner"
 import { $api, type Schemas } from "@/api/client"
 import { ConfirmDialog } from "@/components/confirm-dialog"
 import { MoreSettings } from "@/components/more-settings"
+import { RouterCheck } from "@/components/router-check"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -24,7 +25,7 @@ import { useErrorToast } from "@/lib/errors"
 
 type Settings = Schemas["CertificateSettings"]
 type CertificateSet = Schemas["CertificateSetView"]
-type Provider = "ACME_DNS" | "PDNS"
+type Provider = "ACME_DNS" | "PDNS" | "HTTP01"
 type Step = "account" | "order" | "dns" | "propagation" | "validation" | "certificate" | "install" | "listener"
 
 const certificateKey = ["get", "/api/certificate"]
@@ -188,6 +189,7 @@ export function CertificatePage() {
             />
           ))
       )}
+      <RouterCheck tlsPort={tlsPort ?? activeSet?.settings.tlsPort ?? TLS_PORT} http01={sets.some((set) => set.settings.provider === "HTTP01")} />
       <ConfirmDialog
         open={activating !== null}
         onOpenChange={(open) => !open && setActivating(null)}
@@ -343,6 +345,7 @@ function SetEditor({ set, available, running, onClose }: { set: CertificateSet |
   }
 
   const acmeDns = value.provider === "ACME_DNS"
+  const http01 = value.provider === "HTTP01"
   const caValue = custom ? CUSTOM : value.directory
   const needsAccount = custom || value.directory === ZEROSSL || value.directory === GOOGLE
 
@@ -468,7 +471,7 @@ function SetEditor({ set, available, running, onClose }: { set: CertificateSet |
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {(["ACME_DNS", "PDNS"] as Provider[]).map((provider) => (
+                    {(["ACME_DNS", "PDNS", "HTTP01"] as Provider[]).map((provider) => (
                       <SelectItem key={provider} value={provider}>
                         {t(`certificate.providers.${provider}`)}
                       </SelectItem>
@@ -476,21 +479,27 @@ function SetEditor({ set, available, running, onClose }: { set: CertificateSet |
                   </SelectContent>
                 </Select>
               </Field>
-              <Field>
-                <FieldLabel htmlFor="cert-url">{t("certificate.url")}</FieldLabel>
-                <Input id="cert-url" type="url" required value={value.url} onChange={(e) => change({ url: e.target.value })} />
-                <FieldDescription>{acmeDns ? t("certificate.urlHintAcmeDns") : t("certificate.urlHintPdns")}</FieldDescription>
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="cert-token">{t("certificate.token")}</FieldLabel>
-                <Input id="cert-token" type="password" autoComplete="off" required={!tokenSet} value={token} onChange={(e) => setToken(e.target.value)} />
-                {tokenSet && <FieldDescription>{t("certificate.tokenKeep")}</FieldDescription>}
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="cert-propagation">{t("certificate.propagation")}</FieldLabel>
-                <Input id="cert-propagation" type="number" min={0} max={3600} value={value.propagationSeconds} onChange={(e) => change({ propagationSeconds: Number(e.target.value) })} />
-                <FieldDescription>{t("certificate.propagationHint")}</FieldDescription>
-              </Field>
+              {http01 ? (
+                <FieldDescription className="self-end">{t("certificate.http01Hint")}</FieldDescription>
+              ) : (
+                <>
+                  <Field>
+                    <FieldLabel htmlFor="cert-url">{t("certificate.url")}</FieldLabel>
+                    <Input id="cert-url" type="url" required value={value.url ?? ""} onChange={(e) => change({ url: e.target.value })} />
+                    <FieldDescription>{acmeDns ? t("certificate.urlHintAcmeDns") : t("certificate.urlHintPdns")}</FieldDescription>
+                  </Field>
+                  <Field>
+                    <FieldLabel htmlFor="cert-token">{t("certificate.token")}</FieldLabel>
+                    <Input id="cert-token" type="password" autoComplete="off" required={!tokenSet} value={token} onChange={(e) => setToken(e.target.value)} />
+                    {tokenSet && <FieldDescription>{t("certificate.tokenKeep")}</FieldDescription>}
+                  </Field>
+                  <Field>
+                    <FieldLabel htmlFor="cert-propagation">{t("certificate.propagation")}</FieldLabel>
+                    <Input id="cert-propagation" type="number" min={0} max={3600} value={value.propagationSeconds} onChange={(e) => change({ propagationSeconds: Number(e.target.value) })} />
+                    <FieldDescription>{t("certificate.propagationHint")}</FieldDescription>
+                  </Field>
+                </>
+              )}
             </div>
             {acmeDns && (
               <MoreSettings label={t("bridges.advanced")} open={Boolean(value.apiUser || value.subdomain)}>

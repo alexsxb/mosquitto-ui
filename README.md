@@ -2,7 +2,7 @@
 
 Web UI for an [Eclipse Mosquitto](https://mosquitto.org/) 2.1 broker: clients, groups, roles and access rules through the
 dynamic security plugin, topics live, bridges (with pairing of Victron GX devices), the broker configuration and its TLS
-certificate from an ACME CA (DNS-01 through acme-dns or the PowerDNS API), token login with JWTs, sessions, a trace of
+certificate from an ACME CA (DNS-01 through acme-dns or the PowerDNS API, or HTTP-01), token login with JWTs, sessions, a trace of
 messages, message rules, the broker log, notifications by mail, encrypted backups, an audit log, and a migration from
 `password_file`, `acl_file` and `mosquitto.db`. Login with UI users of its own or identity providers (OpenID Connect,
 GitHub). Quarkus backend, React frontend (`src/main/webui`, served through Quinoa), in English, German and French.
@@ -166,6 +166,20 @@ real one. Failed renewals show on the dashboard and in the log.
 |---|---|---|---|
 | acme-dns | `https://dns.example.com/acme-dns` | ACME key or DynDNS host token of pdnsadmin | With a real acme-dns server also user and subdomain of the registration |
 | PowerDNS | `https://dns.example.com` | API key, restricted to `_acme-challenge` records | Also PowerDNS itself. Needed for several names that the acme-dns key does not cover |
+| HTTP-01 | – | – | No DNS API: the UI answers the CA itself, see below |
+
+With HTTP-01 the CA fetches `http://<domain>/.well-known/acme-challenge/<token>` on port 80 of every domain. That path has to
+reach the UI on port 8080, through a reverse proxy (a router for `Host(<domain>) && PathPrefix(/.well-known/acme-challenge/)`)
+or a port forwarding of 80 to 8080 on the router. The UI answers there without a login, only while an order runs. HTTP-01 takes
+no wildcards and does not work for a broker that is only reachable in the LAN; a proxy that orders its own certificates with an
+HTTP challenge on the same entry point may keep the path for itself.
+
+*Reachability from outside* on the same page asks the router in the LAN (`fritz.box` by default) through the status part of UPnP
+IGD, which needs no login, what kind of connection it has: a public IPv4, carrier-grade NAT or another NAT in front, DS-Lite,
+IPv6. From that it names the forwardings that MQTT over TLS and HTTP-01 need, or says that nothing can come in. Any IGD tells the
+IPv4 address; DS-Lite and IPv6 only come from a FRITZ!Box. Nothing is changed on the router. On a FRITZ!Box, *Transmit status
+information over UPnP* has to be on (Home Network > Network > Network Settings). In Docker the UI reaches the router through
+the DNS of the host; with another name or an address, enter it on the page.
 
 Besides Let's Encrypt, the page offers ZeroSSL and Google Trust Services, both free. They only take accounts bound to one of
 theirs (external account binding): the key ID and HMAC key come from the ZeroSSL dashboard (*Developer*) or from

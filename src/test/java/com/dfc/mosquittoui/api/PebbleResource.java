@@ -7,9 +7,12 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.Map;
+import org.eclipse.microprofile.config.ConfigProvider;
+import org.testcontainers.Testcontainers;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
 import org.testcontainers.containers.wait.strategy.Wait;
+import org.testcontainers.images.builder.Transferable;
 import org.testcontainers.utility.MountableFile;
 
 /** A real ACME server: Pebble, the test server of Let's Encrypt, which validates against a DNS test server. */
@@ -21,6 +24,12 @@ public class PebbleResource implements QuarkusTestResourceLifecycleManager {
     static GenericContainer<?> pebbleEab;
     /** Certificates for 90 seconds, so that one comes due during a test. */
     static GenericContainer<?> pebbleShort;
+    /**
+     * Validates HTTP-01 against the UI of the test: without a DNS test server it resolves through /etc/hosts, where the name below
+     * stands for the tunnel of Testcontainers to the port of the UI.
+     */
+    static GenericContainer<?> pebbleHttp;
+    static final String HTTP_DOMAIN = "host.testcontainers.internal";
 
     /**
      * The directory of a Pebble for acme4j. Its certificate is made for localhost and pebble: in a job container the mapped ports are behind an
@@ -72,6 +81,23 @@ public class PebbleResource implements QuarkusTestResourceLifecycleManager {
                 .withExposedPorts(14000)
                 .waitingFor(Wait.forLogMessage(".*Listening on.*", 1));
         pebbleShort.start();
+        int uiPort = ConfigProvider.getConfig().getOptionalValue("quarkus.http.test-port", Integer.class).orElse(8081);
+        Testcontainers.exposeHostPorts(uiPort);
+        String httpConfig = """
+                {"pebble": {"listenAddress": "0.0.0.0:14000", "managementListenAddress": "0.0.0.0:15000",
+                  "certificate": "test/certs/localhost/cert.pem", "privateKey": "test/certs/localhost/key.pem",
+                  "httpPort": %d, "tlsPort": 5001, "ocspResponderURL": "", "externalAccountBindingRequired": false}}
+                """.formatted(uiPort);
+        pebbleHttp = new GenericContainer<>("ghcr.io/letsencrypt/pebble:latest")
+                .withNetwork(network)
+                .withAccessToHost(true)
+                .withEnv("PEBBLE_VA_NOSLEEP", "1")
+                .withEnv("PEBBLE_WFE_NONCEREJECT", "0")
+                .withCopyToContainer(Transferable.of(httpConfig), "/test/config/pebble-http.json")
+                .withCommand("-config", "test/config/pebble-http.json")
+                .withExposedPorts(14000)
+                .waitingFor(Wait.forLogMessage(".*Listening on.*", 1));
+        pebbleHttp.start();
         if (SharedDirectory.inJobContainer()) {
             nameTheHost(pebble.getHost());
         }
@@ -84,6 +110,7 @@ public class PebbleResource implements QuarkusTestResourceLifecycleManager {
             pebble.stop();
             pebbleEab.stop();
             pebbleShort.stop();
+            pebbleHttp.stop();
             dns.stop();
         }
     }

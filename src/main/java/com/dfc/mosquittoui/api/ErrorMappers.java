@@ -9,6 +9,7 @@ import com.dfc.mosquittoui.certificate.CertificateException;
 import com.dfc.mosquittoui.config.AgentException;
 import com.dfc.mosquittoui.config.BridgeException;
 import com.dfc.mosquittoui.importer.InvalidFileException;
+import com.dfc.mosquittoui.router.RouterException;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
 import jakarta.ws.rs.core.MediaType;
@@ -55,6 +56,11 @@ public class ErrorMappers {
     @ServerExceptionMapper
     public Response certificate(CertificateException e) {
         return error(Response.Status.CONFLICT, e.code(), e.getMessage(), null);
+    }
+
+    @ServerExceptionMapper
+    public Response router(RouterException e) {
+        return error(Response.Status.BAD_GATEWAY, e.code(), e.getMessage(), null);
     }
 
     @ServerExceptionMapper
