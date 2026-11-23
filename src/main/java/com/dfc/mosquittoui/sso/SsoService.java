@@ -51,7 +51,8 @@ public class SsoService {
     public record ProviderView(String id, String name, String template, boolean enabled, @Schema(nullable = true) String issuer,
             @Schema(nullable = true) String clientId, boolean secretSet, @Schema(nullable = true) String appleKeyId, @Schema(nullable = true) String appleTeamId,
             List<String> scopes, List<String> roleClaims, SsoTemplate.RoleSource roleSource, List<String> allowRoles, boolean allowAll,
-            List<AllowedView> allowed, List<String> githubOrgs, List<DeniedView> denied,
+            List<AllowedView> allowed, List<String> githubOrgs,
+            @Schema(description = "an e-mail address counts only when the provider says it is confirmed") boolean verifiedEmailOnly, List<DeniedView> denied,
             @Schema(description = "taken over from QUARKUS_OIDC_* at the first start") boolean fromEnvironment, Instant created,
             @Schema(nullable = true) Instant lastLogin) {
     }
@@ -61,7 +62,15 @@ public class SsoService {
             @Schema(nullable = true) String clientId, @Schema(nullable = true) String clientSecret, @Schema(nullable = true) String appleKeyId,
             @Schema(nullable = true) String appleTeamId, @Schema(nullable = true) List<String> scopes, @Schema(nullable = true) List<String> roleClaims,
             @Schema(nullable = true) SsoTemplate.RoleSource roleSource, @Schema(nullable = true) List<String> allowRoles, boolean allowAll,
-            @Schema(nullable = true) List<AllowedView> allowed, @Schema(nullable = true) List<String> githubOrgs) {
+            @Schema(nullable = true) List<AllowedView> allowed, @Schema(nullable = true) List<String> githubOrgs,
+            @Schema(nullable = true, description = "null: unchanged, for a new provider on where the provider says it") Boolean verifiedEmailOnly) {
+
+        public ProviderInput(String id, String name, String template, boolean enabled, String issuer, String clientId, String clientSecret, String appleKeyId,
+                String appleTeamId, List<String> scopes, List<String> roleClaims, SsoTemplate.RoleSource roleSource, List<String> allowRoles, boolean allowAll,
+                List<AllowedView> allowed, List<String> githubOrgs) {
+            this(id, name, template, enabled, issuer, clientId, clientSecret, appleKeyId, appleTeamId, scopes, roleClaims, roleSource, allowRoles, allowAll, allowed,
+                    githubOrgs, null);
+        }
     }
 
     public record SsoSettings(@Schema(description = "people can log in with a user of this application") boolean localLogin,
@@ -185,6 +194,7 @@ public class SsoService {
         c.allowAll = p.allowAll;
         c.allowed = p.allowed.stream().map(a -> new Allowed(a.match, a.localUser)).toList();
         c.githubOrgs = List.copyOf(p.githubOrgs);
+        c.verifiedEmailOnly = p.verifiedEmailOnly;
         c.stateSecret = p.stateSecret;
         c.version = p.version;
         c.fromEnvironment = p.fromEnvironment;
@@ -197,7 +207,7 @@ public class SsoService {
         return new ProviderView(p.id, p.name, p.template, p.enabled, p.issuer, p.clientId, p.clientSecret != null, p.appleKeyId, p.appleTeamId,
                 List.copyOf(p.scopes), List.copyOf(p.roleClaims), p.roleSource, List.copyOf(p.allowRoles), p.allowAll,
                 p.allowed.stream().map(a -> new AllowedView(a.match, a.localUser)).toList(), List.copyOf(p.githubOrgs),
-                p.denied.stream().map(d -> new DeniedView(d.username, d.email, d.subject, List.copyOf(d.roles), d.at)).toList(), p.fromEnvironment, p.created,
+                p.verifiedEmailOnly, p.denied.stream().map(d -> new DeniedView(d.username, d.email, d.subject, List.copyOf(d.roles), d.at)).toList(), p.fromEnvironment, p.created,
                 p.lastLogin);
     }
 
@@ -262,7 +272,7 @@ public class SsoService {
                 || !Objects.equals(before.clientSecret, after.clientSecret) || !Objects.equals(before.appleKeyId, after.appleKeyId)
                 || !Objects.equals(before.appleTeamId, after.appleTeamId) || !before.scopes.equals(after.scopes) || !before.roleClaims.equals(after.roleClaims)
                 || before.roleSource != after.roleSource || before.enabled && !after.enabled;
-        boolean fewer = before.allowAll && !after.allowAll || !after.allowRoles.containsAll(before.allowRoles)
+        boolean fewer = before.allowAll && !after.allowAll || !before.verifiedEmailOnly && after.verifiedEmailOnly || !after.allowRoles.containsAll(before.allowRoles)
                 || !lower(after.githubOrgs).containsAll(lower(before.githubOrgs))
                 || before.allowed.stream().anyMatch(b -> after.allowed.stream().noneMatch(a -> a.match.equalsIgnoreCase(b.match) && Objects.equals(a.localUser, b.localUser)));
         return connection || fewer;
@@ -380,6 +390,13 @@ public class SsoService {
             if (!org.matches("[A-Za-z0-9-]{1,39}(/[A-Za-z0-9_.-]{1,100})?")) {
                 throw new SsoException("validation", "An organisation is \"org\" or \"org/team\": " + org, "githubOrgs");
             }
+        }
+        if (!template.emailVerified()) {
+            p.verifiedEmailOnly = false;
+        } else if (input.verifiedEmailOnly() != null) {
+            p.verifiedEmailOnly = input.verifiedEmailOnly();
+        } else if (created) {
+            p.verifiedEmailOnly = true;
         }
         if (template.organisations() && !p.githubOrgs.isEmpty() && !p.scopes.contains("read:org")) {
             p.scopes.add("read:org");

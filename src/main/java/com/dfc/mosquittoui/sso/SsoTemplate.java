@@ -14,7 +14,14 @@ public record SsoTemplate(String id, String name, Group group, @Schema(nullable 
         @Schema(description = "the provider can put roles or groups into its tokens") boolean roles,
         @Schema(description = "membership in GitHub organisations and teams") boolean organisations,
         @Schema(description = "a private key (Sign in with Apple) instead of a client secret") boolean appleKey,
-        @Schema(nullable = true) String docs) {
+        @Schema(nullable = true) String docs,
+        @Schema(description = "the provider says whether an e-mail address is confirmed (email_verified), so only confirmed ones can be required") boolean emailVerified) {
+
+    /** Entra ID and GitHub say nothing about it (GitHub only shows a confirmed address anyway) */
+    SsoTemplate(String id, String name, Group group, String issuer, String issuerExample, List<String> scopes, RoleSource roleSource, List<String> roleClaims,
+            boolean roles, boolean organisations, boolean appleKey, String docs) {
+        this(id, name, group, issuer, issuerExample, scopes, roleSource, roleClaims, roles, organisations, appleKey, docs, !List.of("entra", "github").contains(id));
+    }
 
     public enum Group { SELF_HOSTED, CLOUD, CODE, ENTERPRISE, GENERIC }
 

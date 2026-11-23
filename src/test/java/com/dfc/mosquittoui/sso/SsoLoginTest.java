@@ -83,8 +83,12 @@ class SsoLoginTest {
     }
 
     private ProviderInput input(String template, List<String> roles, List<AllowedView> allowed, boolean all) {
+        return input(template, roles, allowed, all, false);
+    }
+
+    private ProviderInput input(String template, List<String> roles, List<AllowedView> allowed, boolean all, Boolean verifiedEmailOnly) {
         return new ProviderInput("fake", "Fake IdP", template, true, base.resolve("/fake-idp").toString(), FakeIdp.CLIENT, FakeIdp.SECRET, null, null, null, null,
-                null, roles, all, allowed, null);
+                null, roles, all, allowed, null, verifiedEmailOnly);
     }
 
     @AfterEach
@@ -145,6 +149,56 @@ class SsoLoginTest {
         // a new password of bob ends the session as well
         users.setPassword("bob", "bob-password-5678");
         assertEquals(499, browser.api(base, "/api/auth/me").statusCode());
+    }
+
+    @Test
+    void onlyConfirmedAddressesWhereTheProviderAsksForIt() throws Exception {
+        // without saying so, a new provider asks for it where the provider tells (not Entra ID)
+        assertTrue(sso.create(input("oidc", List.of(), List.of(new AllowedView("*@example.org", null)), false, null)).verifiedEmailOnly());
+        Browser browser = new Browser();
+        FakeIdp.next = Map.of("sub", "v-1", "email", "erin@example.org");
+        assertTrue(browser.login(base, "fake").getQuery().contains("sso-denied"), "nothing said about the address");
+        FakeIdp.next = Map.of("sub", "v-1", "email", "erin@example.org", "email_verified", "true");
+        assertEquals(null, browser.login(base, "fake").getQuery(), "confirmed, as Apple says it");
+        assertTrue(browser.api(base, "/api/auth/me").body().contains("erin@example.org"));
+
+        // null leaves it; turning it off lets more in, the session stays
+        sso.update("fake", input("oidc", List.of(), List.of(new AllowedView("*@example.org", null)), false, null));
+        assertTrue(sso.settings().providers().getFirst().verifiedEmailOnly());
+        sso.update("fake", input("oidc", List.of(), List.of(new AllowedView("*@example.org", null)), false, false));
+        assertEquals(200, browser.api(base, "/api/auth/me").statusCode());
+        FakeIdp.next = Map.of("sub", "v-2", "email", "frida@example.org");
+        assertEquals(null, browser.login(base, "fake").getQuery(), "off: an address without email_verified counts, as before");
+        FakeIdp.next = Map.of("sub", "v-3", "email", "gus@example.org", "email_verified", false);
+        assertTrue(browser.login(base, "fake").getQuery().contains("sso-denied"), "unconfirmed never counts");
+
+        // turning it on lets fewer in: the sessions end
+        Browser frida = new Browser();
+        FakeIdp.next = Map.of("sub", "v-2", "email", "frida@example.org");
+        frida.login(base, "fake");
+        assertEquals(200, frida.api(base, "/api/auth/me").statusCode());
+        sso.update("fake", input("oidc", List.of(), List.of(new AllowedView("*@example.org", null)), false, true));
+        assertEquals(499, frida.api(base, "/api/auth/me").statusCode());
+        assertTrue(frida.login(base, "fake").getQuery().contains("sso-denied"));
+        assertEquals(null, sso.settings().providers().getFirst().denied().getFirst().email(), "the unconfirmed address is not offered to let in");
+    }
+
+    @Test
+    void entraCannotAskForConfirmedAddresses() {
+        SsoService.ProviderView entra = sso.create(new ProviderInput("fake", "Entra", "entra", true, "https://login.example.org/t/v2.0", FakeIdp.CLIENT,
+                FakeIdp.SECRET, null, null, null, null, null, null, true, null, null, true));
+        assertFalse(entra.verifiedEmailOnly(), "Entra ID does not send email_verified");
+    }
+
+    @Test
+    void emailVerifiedIsReadInEveryForm() {
+        assertTrue(SsoLoginResource.confirmed(true, true));
+        assertTrue(SsoLoginResource.confirmed("true", true));
+        assertTrue(SsoLoginResource.confirmed(jakarta.json.JsonValue.TRUE, true));
+        assertFalse(SsoLoginResource.confirmed(null, true));
+        assertTrue(SsoLoginResource.confirmed(null, false));
+        assertFalse(SsoLoginResource.confirmed(false, false));
+        assertFalse(SsoLoginResource.confirmed("\"false\"", false));
     }
 
     @Test

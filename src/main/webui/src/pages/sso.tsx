@@ -377,6 +377,7 @@ function ProviderDialog({ template, provider, taken, localUsers, onClose, onDone
   const [allowAll, setAllowAll] = useState(provider?.allowAll ?? false)
   const [roles, setRoles] = useState((provider?.allowRoles ?? []).join(", "))
   const [orgs, setOrgs] = useState((provider?.githubOrgs ?? []).join(", "))
+  const [verifiedEmailOnly, setVerifiedEmailOnly] = useState(provider?.verifiedEmailOnly ?? template.emailVerified)
   const [allowed, setAllowed] = useState<{ match: string; localUser: string }[]>(
     (provider?.allowed ?? []).map((a) => ({ match: a.match, localUser: a.localUser ?? NONE })),
   )
@@ -421,6 +422,7 @@ function ProviderDialog({ template, provider, taken, localUsers, onClose, onDone
       allowAll,
       allowed: allowed.filter((a) => a.match.trim()).map((a) => ({ match: a.match.trim(), localUser: a.localUser === NONE ? null : a.localUser })),
       githubOrgs: words(orgs),
+      verifiedEmailOnly: template.emailVerified ? verifiedEmailOnly : false,
     }
     try {
       if (provider) {
@@ -610,6 +612,15 @@ function ProviderDialog({ template, provider, taken, localUsers, onClose, onDone
                   </Button>
                 </div>
               </div>
+              {template.emailVerified && (
+                <label className="flex items-start gap-3 text-sm">
+                  <Switch checked={verifiedEmailOnly} onCheckedChange={setVerifiedEmailOnly} />
+                  <span>
+                    {t("sso.verifiedEmailOnly")}
+                    <span className="block text-muted-foreground">{t("sso.verifiedEmailOnlyHint")}</span>
+                  </span>
+                </label>
+              )}
             </section>
 
             <details className="rounded-lg border p-3 text-sm">

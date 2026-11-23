@@ -63,6 +63,8 @@ public class SsoStore {
         public boolean allowAll;
         public List<Allowed> allowed = new ArrayList<>();
         public List<String> githubOrgs = new ArrayList<>();
+        /** An e-mail address counts only when the provider says it is confirmed (email_verified=true); off for providers set up before */
+        public boolean verifiedEmailOnly;
         public List<Denied> denied = new ArrayList<>();
         /** For state and session cookies of the code flow */
         public String stateSecret;

@@ -115,11 +115,22 @@ public class SsoLoginResource {
         if (verified == null && info != null && info.getJsonObject().containsKey("email_verified")) {
             verified = info.getJsonObject().getValue("email_verified");
         }
-        if (Boolean.FALSE.equals(verified) || "false".equals(String.valueOf(verified))) {
+        String unconfirmed = null;
+        if (email != null && !confirmed(verified, provider.verifiedEmailOnly)) {
+            unconfirmed = email;
             email = null;
         }
         String name = first(claim(token, "name"), text(info, "name"));
-        return new Person(subject, username, email, name, Set.copyOf(identity.getRoles()));
+        return new Person(subject, username, email, name, Set.copyOf(identity.getRoles()), unconfirmed);
+    }
+
+    /** email_verified as true, "true" (Apple) or a JSON value; without it the address counts only where the provider does not ask for it */
+    static boolean confirmed(Object verified, boolean required) {
+        String value = verified == null ? null : String.valueOf(verified).replaceAll("^\"|\"$", "");
+        if ("false".equalsIgnoreCase(value)) {
+            return false;
+        }
+        return !required || "true".equalsIgnoreCase(value);
     }
 
     private static String claim(JsonWebToken token, String name) {

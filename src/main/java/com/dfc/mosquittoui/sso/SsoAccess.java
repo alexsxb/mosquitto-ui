@@ -29,8 +29,11 @@ public class SsoAccess {
     private static final Logger LOG = Logger.getLogger(SsoAccess.class);
     private static final int PAGES = 10;
 
-    /** Who logged in at the provider; email only when the provider does not say it is unverified */
-    public record Person(String subject, String username, String email, String name, Set<String> roles) {
+    /**
+     * Who logged in at the provider; email only when the provider does not say it is unconfirmed, or says it is confirmed where the
+     * provider asks for that. unconfirmedEmail: the address left out, for the audit log.
+     */
+    public record Person(String subject, String username, String email, String name, Set<String> roles, String unconfirmedEmail) {
 
         /** How the person is called in the audit log and the header */
         String principal() {
@@ -72,7 +75,8 @@ public class SsoAccess {
                 }
             }
         }
-        return new Decision(false, null, "not allowed");
+        return new Decision(false, null, person.unconfirmedEmail() == null ? "not allowed"
+                : "not allowed, the e-mail address " + person.unconfirmedEmail() + " is not confirmed by the provider");
     }
 
     static boolean matches(String match, Person person) {

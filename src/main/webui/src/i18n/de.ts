@@ -1543,6 +1543,8 @@ export default {
     people: "Freigeschaltete Personen",
     peopleHint: "E-Mail-Adresse, *@domain für eine ganze Domain oder Benutzername. Mit einem UI-Benutzer gilt die Anmeldung als dieser.",
     addPerson: "Person hinzufügen",
+    verifiedEmailOnly: "Nur bestätigte E-Mail-Adressen",
+    verifiedEmailOnlyHint: "Eine Adresse zählt nur, wenn der Provider sie mit email_verified=true als bestätigt meldet. Sonst könnte jemand mit einer fremden, unbestätigten Adresse hineinkommen.",
     advanced: "Erweitert",
     scopes: "Scopes",
     claims: "Rollen-Claims",

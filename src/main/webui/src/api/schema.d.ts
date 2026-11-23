@@ -2487,6 +2487,8 @@ export interface components {
             allowAll: boolean;
             allowed: components["schemas"]["AllowedView"][] | null;
             githubOrgs: string[] | null;
+            /** @description null: unchanged, for a new provider on where the provider says it */
+            verifiedEmailOnly: boolean | null;
         };
         ProviderView: {
             id: string;
@@ -2505,6 +2507,8 @@ export interface components {
             allowAll: boolean;
             allowed: components["schemas"]["AllowedView"][];
             githubOrgs: string[];
+            /** @description an e-mail address counts only when the provider says it is confirmed */
+            verifiedEmailOnly: boolean;
             denied: components["schemas"]["DeniedView"][];
             /** @description taken over from QUARKUS_OIDC_* at the first start */
             fromEnvironment: boolean;
@@ -2737,6 +2741,8 @@ export interface components {
             /** @description a private key (Sign in with Apple) instead of a client secret */
             appleKey: boolean;
             docs: string | null;
+            /** @description the provider says whether an e-mail address is confirmed (email_verified), so only confirmed ones can be required */
+            emailVerified: boolean;
         };
         StatsSample: {
             time: components["schemas"]["Instant"];

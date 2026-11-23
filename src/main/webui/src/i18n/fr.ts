@@ -1543,6 +1543,8 @@ export default {
     people: "Personnes autorisées",
     peopleHint: "Adresse e-mail, *@domaine pour tout un domaine, ou nom d'utilisateur. Avec un utilisateur UI, la connexion compte comme celle de cet utilisateur.",
     addPerson: "Ajouter une personne",
+    verifiedEmailOnly: "Adresses e-mail confirmées uniquement",
+    verifiedEmailOnlyHint: "Une adresse ne compte que si le fournisseur la déclare confirmée avec email_verified=true. Sinon, quelqu’un pourrait entrer avec l’adresse d’une autre personne, jamais confirmée.",
     advanced: "Avancé",
     scopes: "Scopes",
     claims: "Claims des rôles",

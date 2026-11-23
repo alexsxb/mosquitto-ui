@@ -1543,6 +1543,8 @@ export default {
     people: "People allowed",
     peopleHint: "E-mail address, *@domain for a whole domain, or user name. With a UI user, the login counts as that user.",
     addPerson: "Add person",
+    verifiedEmailOnly: "Confirmed e-mail addresses only",
+    verifiedEmailOnlyHint: "An address counts only when the provider reports it as confirmed with email_verified=true. Otherwise somebody could get in with an address of someone else that was never confirmed.",
     advanced: "Advanced",
     scopes: "Scopes",
     claims: "Role claims",
