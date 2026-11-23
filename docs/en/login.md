@@ -51,8 +51,11 @@ Per provider, one rule that fits is enough:
 - **Roles or groups** from the token (Keycloak, authentik, Entra ID, Okta …).
 - **Organisations and teams** (GitHub): `org` or `org/team`.
 - **People allowed:** e-mail address, `*@example.org` for a whole domain, or user name
-  (`preferred_username`, for GitHub the login). An e-mail address does not count if the provider reports it as unverified
-  (`email_verified: false`). Optionally **as UI user**: the login then counts as that user (audit log, header),
+  (`preferred_username`, for GitHub the login). An e-mail address never counts if the provider reports it as unverified
+  (`email_verified: false`). With **Confirmed e-mail addresses only** it counts only when the provider reports
+  `email_verified: true`; new providers have that on when the provider sends the claim (not Entra ID and GitHub), providers set
+  up before 1.8.0 have it off. A user name holds for whoever the provider gives that name: allowing people by name assumes
+  nobody there can pick a name freely or take over one that became free. Optionally **as UI user**: the login then counts as that user (audit log, header),
   and it ends when that user's password changes or the user is deleted.
 
 Whoever logs in and fits no rule does not get in, sees why on the start page and shows up on the page Login

@@ -637,9 +637,15 @@ der Broker nimmt alle oder keine und trennt höchstens einmal, und nur wenn sich
   <li><em>Jeder, der sich beim Provider anmelden kann</em>: wenn der Provider selbst festlegt, wer den Client benutzen darf. Nicht bei Google, GitHub oder Apple, dort hat jeder ein Konto.</li>
   <li><em>Rollen oder Gruppen</em> aus dem Token, z. B. <code>mosquitto-admin</code>. Wo im Token sie stehen, kennt die Vorlage; unter <em>Erweitert</em> änderbar.</li>
   <li><em>Organisationen und Teams</em> bei GitHub: <code>org</code> oder <code>org/team</code>.</li>
-  <li><em>Freigeschaltete Personen</em>: E-Mail-Adresse, <code>*@example.org</code> für eine ganze Domain, oder Benutzername. Nur bestätigte
-    E-Mail-Adressen zählen. Mit einem UI-Benutzer daneben gilt die Anmeldung als dieser Benutzer.</li>
+  <li><em>Freigeschaltete Personen</em>: E-Mail-Adresse, <code>*@example.org</code> für eine ganze Domain, oder Benutzername. Mit einem UI-Benutzer daneben gilt die Anmeldung als dieser Benutzer.</li>
+  <li><em>Nur bestätigte E-Mail-Adressen</em>: Eine Adresse zählt dann nur, wenn der Provider sie mit <code>email_verified=true</code> als bestätigt
+    meldet; als unbestätigt gemeldete zählen nie. Neue Provider haben das an. Bei Entra ID und GitHub fehlt der Schalter, sie melden das nicht
+    (GitHub zeigt ohnehin nur bestätigte Adressen). Vor Version 1.8.0 eingerichtete Provider haben es aus: einschalten, wenn der Provider das Claim
+    sendet und Personen nach Adresse oder Domain hineinlässt.</li>
 </ul>
+<p>Ein <strong>Benutzername</strong> gilt für jeden, dem der Provider diesen Namen gibt, unabhängig vom Konto dahinter. Freigaben nach Namen
+setzen voraus, dass beim Provider niemand einen Namen frei wählen oder einen frei gewordenen übernehmen kann. Dafür bleibt nach einem Umzug
+des Providers (neuer Realm, andere Konto-IDs) alles, wie es war.</p>
 <p>Ändern sich die Verbindungsdaten eines Providers oder dürfen weniger hinein, enden seine Sitzungen; ein neuer Name oder mehr Freigeschaltete
 lassen sie stehen. <em>Abmelden</em> meldet auch beim Provider ab, wenn er das kann. Details: <code>docs/anmeldung.md</code>.</p>
 

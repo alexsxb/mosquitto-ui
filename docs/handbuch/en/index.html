@@ -634,9 +634,15 @@ check <code>/q/health</code> from outside.</p>
   <li><em>Everyone who can log in at this provider</em>: when the provider itself decides who may use the client. Not with Google, GitHub or Apple, where everyone has an account.</li>
   <li><em>Roles or groups</em> from the token, e.g. <code>mosquitto-admin</code>. The template knows where they are in the token; you can change it under <em>Advanced</em>.</li>
   <li><em>Organisations and teams</em> on GitHub: <code>org</code> or <code>org/team</code>.</li>
-  <li><em>People allowed</em>: an e-mail address, <code>*@example.org</code> for a whole domain, or a user name. Only verified
-    e-mail addresses count. With a UI user next to it, the login counts as that user.</li>
+  <li><em>People allowed</em>: an e-mail address, <code>*@example.org</code> for a whole domain, or a user name. With a UI user next to it, the login counts as that user.</li>
+  <li><em>Confirmed e-mail addresses only</em>: an address then counts only when the provider reports it as confirmed with
+    <code>email_verified=true</code>; one reported as unconfirmed never counts. New providers have it on. Entra ID and GitHub have no switch, they
+    do not report it (GitHub only shows confirmed addresses anyway). Providers set up before version 1.8.0 have it off: turn it on when the
+    provider sends the claim and lets people in by address or domain.</li>
 </ul>
+<p>A <strong>user name</strong> holds for whoever the provider gives that name, whatever account is behind it. Allowing people by name assumes
+nobody at the provider can pick a name freely or take over one that became free. In return, everything stays as it was after the provider
+moves (new realm, other account ids).</p>
 <p>If the connection settings of a provider change, or fewer people may come in, its sessions end; a new name or more people allowed
 leave them as they are. <em>Log out</em> also logs out at the provider, if it supports that. Details: <code>docs/en/login.md</code>.</p>
 

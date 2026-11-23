@@ -636,9 +636,16 @@ surveillez <code>/q/health</code> depuis l'extérieur.</p>
   <li><em>Toute personne qui peut se connecter chez ce fournisseur</em>&nbsp;: lorsque le fournisseur décide lui-même qui peut utiliser le client. Pas avec Google, GitHub ou Apple, où tout le monde a un compte.</li>
   <li><em>Rôles ou groupes</em> du jeton, p. ex. <code>mosquitto-admin</code>. Le modèle sait où ils se trouvent dans le jeton&nbsp;; modifiable sous <em>Avancé</em>.</li>
   <li><em>Organisations et équipes</em> sur GitHub&nbsp;: <code>org</code> ou <code>org/team</code>.</li>
-  <li><em>Personnes autorisées</em>&nbsp;: adresse e-mail, <code>*@example.org</code> pour tout un domaine, ou nom d'utilisateur. Seules les adresses e-mail
-    vérifiées comptent. Avec un utilisateur UI à côté, la connexion compte comme celle de cet utilisateur.</li>
+  <li><em>Personnes autorisées</em>&nbsp;: adresse e-mail, <code>*@example.org</code> pour tout un domaine, ou nom d'utilisateur. Avec un utilisateur UI à côté, la connexion compte comme celle de cet utilisateur.</li>
+  <li><em>Adresses e-mail confirmées uniquement</em>&nbsp;: une adresse ne compte alors que si le fournisseur la déclare confirmée avec
+    <code>email_verified=true</code>&nbsp;; une adresse déclarée non confirmée ne compte jamais. Les nouveaux fournisseurs l'ont activé. Entra ID et
+    GitHub n'ont pas cet interrupteur, ils ne le déclarent pas (GitHub n'affiche de toute façon que des adresses confirmées). Les fournisseurs
+    configurés avant la version 1.8.0 l'ont désactivé&nbsp;: l'activer si le fournisseur envoie la revendication et laisse entrer des personnes par
+    adresse ou par domaine.</li>
 </ul>
+<p>Un <strong>nom d'utilisateur</strong> vaut pour quiconque reçoit ce nom du fournisseur, quel que soit le compte derrière. Autoriser des personnes
+par leur nom suppose que personne chez le fournisseur ne puisse choisir librement un nom ou reprendre un nom devenu libre. En contrepartie, tout
+reste en l'état après un déménagement du fournisseur (nouveau realm, autres identifiants de compte).</p>
 <p>Si les paramètres de connexion d'un fournisseur changent ou si moins de personnes peuvent entrer, ses sessions prennent fin&nbsp;; un nouveau nom ou davantage
 de personnes autorisées les laissent ouvertes. <em>Se déconnecter</em> déconnecte aussi chez le fournisseur, s'il le permet. Détails&nbsp;: <code>docs/anmeldung.md</code>.</p>
 

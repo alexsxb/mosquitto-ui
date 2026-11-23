@@ -51,8 +51,11 @@ Pro Provider, eine passende Regel genügt:
 - **Rollen oder Gruppen** aus dem Token (Keycloak, authentik, Entra ID, Okta …).
 - **Organisationen und Teams** (GitHub): `org` oder `org/team`.
 - **Freigeschaltete Personen:** E-Mail-Adresse, `*@example.org` für eine ganze Domain, oder Benutzername
-  (`preferred_username`, bei GitHub der Login). Eine E-Mail-Adresse zählt nicht, wenn der Provider sie als unbestätigt meldet
-  (`email_verified: false`). Optional **als UI-Benutzer**: Die Anmeldung gilt dann als dieser Benutzer (Protokoll, Kopfzeile),
+  (`preferred_username`, bei GitHub der Login). Eine E-Mail-Adresse zählt nie, wenn der Provider sie als unbestätigt meldet
+  (`email_verified: false`). Mit **Nur bestätigte E-Mail-Adressen** zählt sie nur, wenn er `email_verified: true` meldet;
+  neue Provider haben das an, wenn der Provider das Claim sendet (nicht Entra ID und GitHub), vor 1.8.0 eingerichtete aus.
+  Ein Benutzername gilt für jeden, dem der Provider diesen Namen gibt: Freigaben nach Namen setzen voraus, dass dort niemand
+  einen Namen frei wählen oder einen frei gewordenen übernehmen kann. Optional **als UI-Benutzer**: Die Anmeldung gilt dann als dieser Benutzer (Protokoll, Kopfzeile),
   und sie endet, wenn dessen Passwort sich ändert oder er gelöscht wird.
 
 Wer sich anmeldet und keine Regel erfüllt, kommt nicht hinein, sieht auf der Startseite warum und steht auf der Seite Anmeldung
